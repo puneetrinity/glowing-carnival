@@ -80,15 +80,15 @@ async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Ge
             if final_delta:
                 deltas.append(final_delta)
 
+            # Normalize usage keys (consistent with non-streaming)
             yield {
                 "delta": final_delta,
                 "text": full_text,  # Full text for convenience
                 "deltas": deltas,  # All deltas for debugging
                 "finished": True,
                 "usage": {
-                    "prompt_tokens": len(request_output.prompt_token_ids),
-                    "completion_tokens": len(request_output.outputs[0].token_ids),
-                    "total_tokens": len(request_output.prompt_token_ids) + len(request_output.outputs[0].token_ids)
+                    "input": len(request_output.prompt_token_ids),
+                    "output": len(request_output.outputs[0].token_ids)
                 }
             }
         else:
