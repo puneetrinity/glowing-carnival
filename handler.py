@@ -52,11 +52,9 @@ def initialize_engine():
         max_model_len=int(os.getenv("MAX_MODEL_LEN", "4096")),
         gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
         max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
-        max_num_batched_tokens=2048,
-        enable_chunked_prefill=True,
+        max_num_batched_tokens=int(os.getenv("MAX_NUM_BATCHED_TOKENS", "512")),  # v0.6.4 default
         dtype="auto",
         trust_remote_code=True,
-        disable_log_requests=True,
     )
 
     llm_engine = AsyncLLMEngine.from_engine_args(engine_args)
