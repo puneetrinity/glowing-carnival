@@ -132,7 +132,7 @@ async def generate_non_streaming(prompt: str, sampling_params: SamplingParams) -
     }
 
 
-async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
+async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """Main async handler for RunPod with V3 validation"""
     try:
         job_input = job.get("input", {})
@@ -263,11 +263,6 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
         import traceback
         traceback.print_exc()
         return {"error": str(e)}
-
-
-def handler(job: Dict[str, Any]) -> Dict[str, Any]:
-    """Synchronous wrapper for RunPod"""
-    return asyncio.run(async_handler(job))
 
 
 # RunPod serverless start
