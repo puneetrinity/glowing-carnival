@@ -177,11 +177,12 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         )
 
         # Generate response
+        deltas = []  # Initialize for both streaming and non-streaming
+        usage = None  # Initialize for both paths
+
         if stream:
             # Streaming mode - aggregate all deltas
-            deltas = []
             full_text = ""
-            usage = None
 
             async for chunk in generate_streaming(prompt, sampling_params):
                 if chunk.get("finished"):
