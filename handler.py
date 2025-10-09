@@ -11,23 +11,22 @@ V3 Improvements:
 
 import os
 import runpod
-from vllm import LLM, SamplingParams
+from vllm import SamplingParams
 from typing import Generator, Dict, Any
 import asyncio
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
-import json
 import sys
 
-# Import V3 validation logic
+# Import V3 validation logic (use symlinked path in container)
 sys.path.append('/home/ews/llm')
 try:
     from career_guidance_v3 import (
         QuestionIntent,
-        classify_intent,
-        validate_response,
+        IntentClassifier,
+        ResponseValidator,
         AutoSanitizer,
-        improved_prompts
+        PromptBuilder,
     )
     USE_V3_VALIDATION = True
     print("✓ V3 validation imported")
@@ -141,7 +140,7 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
         # V3: Classify intent and block if needed
         if USE_V3_VALIDATION and enable_validation:
-            intent = classify_intent(prompt)
+            intent = IntentClassifier.classify(prompt)
             print(f"Intent classified: {intent.value}")
 
             # Block salary/market queries (low validation rates)
@@ -204,8 +203,11 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 result_text = result["choices"][0]["text"]
                 sanitized, status = AutoSanitizer.sanitize(result_text)
 
-            # Validate
-            is_valid, issues = validate_response(sanitized, intent, prompt)
+            # Validate according to intent
+            if intent == QuestionIntent.SALARY_INTEL:
+                is_valid, issues = ResponseValidator.validate_salary_response(prompt, sanitized)
+            else:
+                is_valid, issues = ResponseValidator.validate_career_response(sanitized)
 
             if not is_valid and sampling_config.get("allow_regeneration", True):
                 # Try once more with stricter parameters
@@ -215,7 +217,10 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 result = await generate_non_streaming(prompt, sampling_params)
                 result_text = result["choices"][0]["text"]
                 sanitized, status = AutoSanitizer.sanitize(result_text)
-                is_valid, issues = validate_response(sanitized, intent, prompt)
+                if intent == QuestionIntent.SALARY_INTEL:
+                    is_valid, issues = ResponseValidator.validate_salary_response(prompt, sanitized)
+                else:
+                    is_valid, issues = ResponseValidator.validate_career_response(sanitized)
 
             return {
                 "choices": [{
