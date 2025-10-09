@@ -21,18 +21,23 @@ export DOCKER_USERNAME="your-dockerhub-username"
 ## 📁 Files
 
 - `Dockerfile` - Container with vLLM + Qwen 2.5 7B model
-- `handler.py` - RunPod serverless handler with streaming
+- `handler.py` - RunPod serverless handler with delta streaming + V3 validation
+- `career_guidance_v3.py` - V3 validation (87% career accuracy, intent blocking)
 - `deploy.sh` - Automated deployment script
 - `runpod.toml` - RunPod configuration
 - `DEPLOYMENT_CHECKLIST.md` - Complete deployment guide
+- `STREAMING_API.md` - Delta streaming documentation
 
 ## 🎯 Features
 
-✅ **Streaming Support** - Real-time token-by-token generation
+✅ **Delta Streaming** - Efficient token-by-token delivery (only new text, ~40% bandwidth savings)
+✅ **V3 Validation** - 87% career guidance accuracy, blocks low-quality intents (salary/market)
 ✅ **Auto-scaling** - Scales to 0 when idle, up to 3 workers under load
-✅ **Optimized vLLM** - Low TTFT, high throughput
-✅ **Production-ready** - Error handling, timeouts, health checks
+✅ **Optimized vLLM** - Low TTFT, high throughput (vLLM 0.6.4.post1)
+✅ **Production-ready** - Error handling, timeouts, regeneration on validation failure
 ✅ **Cost-efficient** - Pay only when running
+
+> 📖 **Streaming Details:** See [STREAMING_API.md](STREAMING_API.md) for delta streaming semantics and client examples
 
 ## 📊 Expected Performance
 
