@@ -63,21 +63,27 @@ def initialize_engine():
 
 
 async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Generator[Dict, None, None]:
-    """Generate tokens with streaming"""
+    """Generate tokens with streaming - emits only new deltas"""
     engine = initialize_engine()
     request_id = f"req-{os.urandom(8).hex()}"
 
     # Start generation
     results_generator = engine.generate(prompt, sampling_params, request_id)
 
-    tokens = []
+    prev_len = 0
+    deltas = []
     async for request_output in results_generator:
         if request_output.finished:
             # Final output
-            text = request_output.outputs[0].text
+            full_text = request_output.outputs[0].text
+            final_delta = full_text[prev_len:]  # Any remaining text
+            if final_delta:
+                deltas.append(final_delta)
+
             yield {
-                "text": text,
-                "tokens": tokens,
+                "delta": final_delta,
+                "text": full_text,  # Full text for convenience
+                "deltas": deltas,  # All deltas for debugging
                 "finished": True,
                 "usage": {
                     "prompt_tokens": len(request_output.prompt_token_ids),
@@ -86,12 +92,16 @@ async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Ge
                 }
             }
         else:
-            # Streaming token
-            new_text = request_output.outputs[0].text
-            tokens.append(new_text)
+            # Streaming delta - only new text
+            full_text = request_output.outputs[0].text
+            delta = full_text[prev_len:]
+            prev_len = len(full_text)
+            deltas.append(delta)
+
             yield {
-                "text": new_text,
-                "finished": False
+                "delta": delta,
+                "finished": False,
+                "offset": prev_len - len(delta)  # Starting position of this delta
             }
 
 
@@ -168,8 +178,8 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
         # Generate response
         if stream:
-            # Streaming mode - aggregate all tokens
-            tokens = []
+            # Streaming mode - aggregate all deltas
+            deltas = []
             full_text = ""
             usage = None
 
@@ -177,8 +187,9 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 if chunk.get("finished"):
                     full_text = chunk["text"]
                     usage = chunk["usage"]
+                    deltas = chunk.get("deltas", deltas)  # Use server-side deltas
                 else:
-                    tokens.append(chunk["text"])
+                    deltas.append(chunk["delta"])
 
             result_text = full_text
         else:
@@ -223,7 +234,8 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
             return {
                 "choices": [{
                     "text": sanitized,
-                    "tokens": tokens if stream else [sanitized]
+                    "deltas": deltas if stream else None,  # Token deltas (only new text per chunk)
+                    "tokens": deltas if stream else [sanitized]  # Backward compatibility alias
                 }],
                 "usage": usage or {"input": 0, "output": len(sanitized.split())},
                 "validation": {
@@ -231,16 +243,19 @@ async def async_handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     "issues": issues if not is_valid else [],
                     "sanitized": sanitized != result_text,
                     "intent": intent.value
-                }
+                },
+                "streaming": stream  # Indicate if response was streamed
             }
         else:
             # No validation - return raw response
             return {
                 "choices": [{
                     "text": result_text,
-                    "tokens": tokens if stream else [result_text]
+                    "deltas": deltas if stream else None,
+                    "tokens": deltas if stream else [result_text]
                 }],
-                "usage": usage or {"input": 0, "output": len(result_text.split())}
+                "usage": usage or {"input": 0, "output": len(result_text.split())},
+                "streaming": stream
             }
 
     except Exception as e:
