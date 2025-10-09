@@ -81,14 +81,17 @@ async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Ge
                 deltas.append(final_delta)
 
             # Normalize usage keys (consistent with non-streaming)
+            usage_input = len(request_output.prompt_token_ids)
+            usage_output = len(request_output.outputs[0].token_ids)
             yield {
                 "delta": final_delta,
                 "text": full_text,  # Full text for convenience
                 "deltas": deltas,  # All deltas for debugging
                 "finished": True,
                 "usage": {
-                    "input": len(request_output.prompt_token_ids),
-                    "output": len(request_output.outputs[0].token_ids)
+                    "input": usage_input,
+                    "output": usage_output,
+                    "total": usage_input + usage_output,
                 }
             }
         else:
@@ -120,14 +123,17 @@ async def generate_non_streaming(prompt: str, sampling_params: SamplingParams) -
         raise RuntimeError("Generation failed to complete")
 
     text = final_output.outputs[0].text
+    usage_input = len(final_output.prompt_token_ids)
+    usage_output = len(final_output.outputs[0].token_ids)
     return {
         "choices": [{
             "text": text,
             "tokens": [text]
         }],
         "usage": {
-            "input": len(final_output.prompt_token_ids),
-            "output": len(final_output.outputs[0].token_ids)
+            "input": usage_input,
+            "output": usage_output,
+            "total": usage_input + usage_output,
         }
     }
 
@@ -238,7 +244,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     "deltas": deltas if stream else None,  # Token deltas (only new text per chunk)
                     "tokens": deltas if stream else [sanitized]  # Backward compatibility alias
                 }],
-                "usage": usage or {"input": 0, "output": len(sanitized.split())},
+                "usage": usage or {"input": 0, "output": len(sanitized.split()), "total": len(sanitized.split())},
                 "validation": {
                     "valid": is_valid,
                     "issues": issues if not is_valid else [],
@@ -255,7 +261,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     "deltas": deltas if stream else None,
                     "tokens": deltas if stream else [result_text]
                 }],
-                "usage": usage or {"input": 0, "output": len(result_text.split())},
+                "usage": usage or {"input": 0, "output": len(result_text.split()), "total": len(result_text.split())},
                 "streaming": stream
             }
 
