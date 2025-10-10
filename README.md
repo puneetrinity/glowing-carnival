@@ -91,12 +91,14 @@ Edit `Dockerfile` to tune performance:
 
 ```dockerfile
 # Low latency (interactive chat)
+ENV MAX_MODEL_LEN=1024
 ENV MAX_NUM_SEQS=4
-ENV MAX_NUM_BATCHED_TOKENS=1024
+ENV MAX_NUM_BATCHED_TOKENS=1024  # Must be >= MAX_MODEL_LEN
 
 # High throughput (batch API)
+ENV MAX_MODEL_LEN=4096
 ENV MAX_NUM_SEQS=16
-ENV MAX_NUM_BATCHED_TOKENS=4096
+ENV MAX_NUM_BATCHED_TOKENS=4096  # Must be >= MAX_MODEL_LEN
 ```
 
 Then rebuild and redeploy.

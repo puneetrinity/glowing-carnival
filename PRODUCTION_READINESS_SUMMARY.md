@@ -45,23 +45,26 @@ max_tokens = max(64, min(256, max_tokens))  # Clamp to [64, 256]
 ### 3. vLLM Engine Optimizations (Commit 35a3b21)
 **Dockerfile changes:**
 ```dockerfile
-ENV MAX_NUM_BATCHED_TOKENS=1024  # Was defaulting to 512 (vLLM 0.6.4)
+# Remove MAX_NUM_BATCHED_TOKENS or ensure it is >= MAX_MODEL_LEN
+# Example safe pairs:
+#  - ENV MAX_MODEL_LEN=1024
+#    ENV MAX_NUM_BATCHED_TOKENS=1024
+#  - ENV MAX_MODEL_LEN=4096
+#    ENV MAX_NUM_BATCHED_TOKENS=4096
 ```
 
 **handler.py changes:**
 ```python
-max_num_batched_tokens = int(os.getenv("MAX_NUM_BATCHED_TOKENS", "1024"))
-engine_args = AsyncEngineArgs(
-    ...
-    max_num_batched_tokens=max_num_batched_tokens,  # Higher throughput under load
-    enforce_eager=False,  # Keep kernels fused for speed (CUDA graph)
-)
+env_mnbt = os.getenv("MAX_NUM_BATCHED_TOKENS")
+if env_mnbt and int(env_mnbt) < max_model_len:
+    mnbt = max_model_len  # Clamp to satisfy vLLM constraint
+engine_args = AsyncEngineArgs(**engine_kwargs)
 ```
 
 **Impact:**
-- Better batching efficiency at c=2+ concurrent requests
-- Potential throughput increase without latency trade-off
-- Must monitor GPU memory usage (should be fine with 0.90 util)
+- Prevents vLLM init error: "max_num_batched_tokens is smaller than max_model_len".
+- Maintains configurable batching while avoiding crashes.
+- Monitor GPU memory if using larger `MAX_MODEL_LEN`/`MAX_NUM_BATCHED_TOKENS` pairs.
 
 ---
 

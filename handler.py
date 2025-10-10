@@ -69,20 +69,34 @@ def initialize_engine():
 
     # vLLM AsyncEngine configuration
     max_model_len = int(os.getenv("MAX_MODEL_LEN", "4096"))
-    # max_num_batched_tokens defaults to 512 in vLLM 0.6.4 (not max_model_len)
-    # Set to 1024 for higher throughput; must be >= max_model_len
-    max_num_batched_tokens = int(os.getenv("MAX_NUM_BATCHED_TOKENS", "1024"))
-    engine_args = AsyncEngineArgs(
+    env_mnbt = os.getenv("MAX_NUM_BATCHED_TOKENS")
+    mnbt = None
+    if env_mnbt is not None and env_mnbt != "":
+        try:
+            mnbt_val = int(env_mnbt)
+            if mnbt_val < max_model_len:
+                print(
+                    f"⚠ MAX_NUM_BATCHED_TOKENS ({mnbt_val}) < MAX_MODEL_LEN ({max_model_len}); "
+                    f"overriding to {max_model_len} to satisfy vLLM constraint."
+                )
+                mnbt = max_model_len
+            else:
+                mnbt = mnbt_val
+        except ValueError:
+            print(f"⚠ Invalid MAX_NUM_BATCHED_TOKENS='{env_mnbt}', ignoring.")
+
+    engine_kwargs = dict(
         model=model_path,
         max_model_len=max_model_len,
         gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
         max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
-        max_num_batched_tokens=max_num_batched_tokens,
         dtype="auto",
         trust_remote_code=True,
-        # REMOVED: enforce_eager=False causes CUDA graph crashes on startup (exit code 1)
-        # Using vLLM default behavior instead for stability
     )
+    if mnbt is not None:
+        engine_kwargs["max_num_batched_tokens"] = mnbt
+
+    engine_args = AsyncEngineArgs(**engine_kwargs)
 
     llm_engine = AsyncLLMEngine.from_engine_args(engine_args)
     print(f"✓ vLLM engine initialized with model: {model_path}")
