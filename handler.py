@@ -47,12 +47,13 @@ def initialize_engine():
     model_path = os.getenv("MODEL_PATH", "/models/qwen2-7b-career")
 
     # vLLM AsyncEngine configuration
+    max_model_len = int(os.getenv("MAX_MODEL_LEN", "4096"))
     engine_args = AsyncEngineArgs(
         model=model_path,
-        max_model_len=int(os.getenv("MAX_MODEL_LEN", "4096")),
+        max_model_len=max_model_len,
         gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
         max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
-        max_num_batched_tokens=int(os.getenv("MAX_NUM_BATCHED_TOKENS", "512")),  # v0.6.4 default
+        max_num_batched_tokens=int(os.getenv("MAX_NUM_BATCHED_TOKENS", str(max_model_len))),  # Must be >= max_model_len
         dtype="auto",
         trust_remote_code=True,
     )
