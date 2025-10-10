@@ -145,8 +145,8 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         job_input = job.get("input", {})
 
         # Extract parameters
-        prompt = job_input.get("prompt", "")
-        if not prompt:
+        user_question = job_input.get("prompt", "")
+        if not user_question:
             return {"error": "No prompt provided"}
 
         sampling_config = job_input.get("sampling_params", {})
@@ -154,8 +154,9 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         enable_validation = job_input.get("enable_validation", USE_V3_VALIDATION)
 
         # V3: Classify intent and block if needed
+        intent = None
         if USE_V3_VALIDATION and enable_validation:
-            intent = IntentClassifier.classify(prompt)
+            intent = IntentClassifier.classify(user_question)
             print(f"Intent classified: {intent.value}")
 
             # Block salary/market queries (low validation rates)
@@ -172,6 +173,13 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                         "Expected availability: 2-4 weeks."
                     )
                 }
+
+            # Build proper prompt with template
+            prompt = PromptBuilder.build_prompt(user_question, intent)
+            print(f"✓ Prompt formatted with {intent.value} template")
+        else:
+            # No validation - use raw prompt
+            prompt = user_question
 
         # Build sampling parameters
         sampling_params = SamplingParams(
@@ -222,7 +230,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
             # Validate according to intent
             if intent == QuestionIntent.SALARY_INTEL:
-                is_valid, issues = ResponseValidator.validate_salary_response(prompt, sanitized)
+                is_valid, issues = ResponseValidator.validate_salary_response(user_question, sanitized)
             else:
                 is_valid, issues = ResponseValidator.validate_career_response(sanitized)
 
@@ -235,7 +243,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 result_text = result["choices"][0]["text"]
                 sanitized, status = AutoSanitizer.sanitize(result_text)
                 if intent == QuestionIntent.SALARY_INTEL:
-                    is_valid, issues = ResponseValidator.validate_salary_response(prompt, sanitized)
+                    is_valid, issues = ResponseValidator.validate_salary_response(user_question, sanitized)
                 else:
                     is_valid, issues = ResponseValidator.validate_career_response(sanitized)
 
