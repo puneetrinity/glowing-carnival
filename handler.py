@@ -17,6 +17,10 @@ import asyncio
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
 import sys
+import json
+import uuid
+import time
+from datetime import datetime, timezone
 
 # Import V3 validation logic (use symlinked path in container)
 sys.path.append('/home/ews/llm')
@@ -37,6 +41,23 @@ except ImportError as e:
 # Global vLLM engine instance
 llm_engine = None
 
+# Structured logging functions
+def log_json(event: str, request_id: str, **kwargs):
+    """Emit structured JSON log
+
+    Note: Handler can only log exec_ms (processing time).
+    Queue delay (delay_ms) happens before handler starts -
+    only available from RunPod response metadata client-side.
+    """
+    record = {
+        "ts": datetime.now(timezone.utc).isoformat(),
+        "level": kwargs.pop("level", "info"),
+        "event": event,
+        "request_id": request_id,
+        **kwargs
+    }
+    print(json.dumps(record), flush=True)
+
 def initialize_engine():
     """Initialize vLLM engine with optimized settings"""
     global llm_engine
@@ -48,14 +69,18 @@ def initialize_engine():
 
     # vLLM AsyncEngine configuration
     max_model_len = int(os.getenv("MAX_MODEL_LEN", "4096"))
+    # max_num_batched_tokens defaults to 512 in vLLM 0.6.4 (not max_model_len)
+    # Set to 1024 for higher throughput; must be >= max_model_len
+    max_num_batched_tokens = int(os.getenv("MAX_NUM_BATCHED_TOKENS", "1024"))
     engine_args = AsyncEngineArgs(
         model=model_path,
         max_model_len=max_model_len,
         gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
         max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
-        max_num_batched_tokens=int(os.getenv("MAX_NUM_BATCHED_TOKENS", str(max_model_len))),  # Must be >= max_model_len
+        max_num_batched_tokens=max_num_batched_tokens,
         dtype="auto",
         trust_remote_code=True,
+        enforce_eager=False,  # Keep kernels fused for speed (CUDA graph compilation)
     )
 
     llm_engine = AsyncLLMEngine.from_engine_args(engine_args)
@@ -141,6 +166,10 @@ async def generate_non_streaming(prompt: str, sampling_params: SamplingParams) -
 
 async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
     """Main async handler for RunPod with V3 validation"""
+    # Generate request ID for tracking
+    request_id = str(uuid.uuid4())[:8]
+    request_start = time.time()
+
     try:
         job_input = job.get("input", {})
 
@@ -149,9 +178,25 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         if not user_question:
             return {"error": "No prompt provided"}
 
+        # Guardrail: Prompt length limit (prevents KV cache bloat)
+        if len(user_question) > 1024:
+            return {"error": "Prompt too long (max 1024 chars)"}
+
         sampling_config = job_input.get("sampling_params", {})
         stream = sampling_config.get("stream", False)
         enable_validation = job_input.get("enable_validation", USE_V3_VALIDATION)
+
+        # Guardrail: Clamp max_tokens for chat (prevents abuse, maintains quality)
+        max_tokens = sampling_config.get("max_tokens", 150)
+        max_tokens = max(64, min(256, max_tokens))  # Clamp to [64, 256]
+        sampling_config["max_tokens"] = max_tokens
+
+        # Log request start
+        log_json("start", request_id,
+                 prompt_len=len(user_question),
+                 max_tokens=max_tokens,
+                 stream=stream,
+                 validation_enabled=enable_validation)
 
         # V3: Classify intent and block if needed
         intent = None
@@ -161,6 +206,11 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
             # Block salary/market queries (low validation rates)
             if intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
+                log_json("end", request_id,
+                         ok=False,
+                         exec_ms=int((time.time() - request_start) * 1000),
+                         intent=intent.value,
+                         blocked=True)
                 return {
                     "blocked": True,
                     "intent": intent.value,
@@ -236,6 +286,18 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             if not is_valid:
                 print(f"⚠ Validation failed: {issues} - accepting anyway (regeneration disabled for performance)")
 
+            # Calculate metrics
+            exec_ms = int((time.time() - request_start) * 1000)
+            tokens_out = usage.get("output", 0) if usage else len(sanitized.split())
+
+            # Log request end
+            log_json("end", request_id,
+                     ok=True,
+                     exec_ms=exec_ms,
+                     tokens_generated=tokens_out,
+                     intent=intent.value if intent else "unknown",
+                     valid=is_valid)
+
             return {
                 "choices": [{
                     "text": sanitized,
@@ -253,6 +315,17 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             }
         else:
             # No validation - return raw response
+            exec_ms = int((time.time() - request_start) * 1000)
+            tokens_out = usage.get("output", 0) if usage else len(result_text.split())
+
+            # Log request end
+            log_json("end", request_id,
+                     ok=True,
+                     exec_ms=exec_ms,
+                     tokens_generated=tokens_out,
+                     intent="none",
+                     valid=True)
+
             return {
                 "choices": [{
                     "text": result_text,
@@ -264,6 +337,12 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             }
 
     except Exception as e:
+        exec_ms = int((time.time() - request_start) * 1000)
+        log_json("end", request_id,
+                 level="error",
+                 ok=False,
+                 exec_ms=exec_ms,
+                 error=str(e))
         print(f"Error in handler: {str(e)}")
         import traceback
         traceback.print_exc()
