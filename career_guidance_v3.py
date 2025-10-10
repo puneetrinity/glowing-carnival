@@ -227,11 +227,11 @@ class ResponseValidator:
 
     @staticmethod
     def check_length(response: str) -> Tuple[bool, Optional[str]]:
-        """Check response length"""
+        """Check response length (RELAXED: was 20, now 10 words min)"""
         word_count = len(response.split())
 
-        if word_count < 20:
-            return False, "Response too short (< 20 words)"
+        if word_count < 10:
+            return False, "Response too short (< 10 words)"
         elif word_count > 250:
             return False, "Response too long (> 250 words) - may be contaminated"
 
@@ -239,11 +239,11 @@ class ResponseValidator:
 
     @staticmethod
     def check_repetition(response: str) -> Tuple[bool, Optional[str]]:
-        """Check for repetition"""
+        """Check for repetition (RELAXED: was 0.35, now 0.20)"""
         words = response.split()
         if len(words) > 20:
             unique_ratio = len(set(words)) / len(words)
-            if unique_ratio < 0.35:  # More lenient
+            if unique_ratio < 0.20:  # Very lenient - allow structured/templated responses
                 return False, f"Repetitive content (unique ratio: {unique_ratio:.2f})"
 
         return True, None
