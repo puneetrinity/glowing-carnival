@@ -309,9 +309,27 @@ class ResponseValidator:
         return len(issues) == 0, issues
 
 class PromptBuilder:
-    """Improved prompts for weak categories"""
+    """Build ChatML-formatted message arrays for career guidance"""
 
-    INTERVIEW_TEMPLATE = """You are a technical interview coach. Provide specific, actionable advice.
+    @staticmethod
+    def build_messages(question: str, intent: QuestionIntent) -> list:
+        """Build messages array with proper system prompt based on intent
+
+        Returns list of dicts with 'role' and 'content' keys for ChatML formatting
+        """
+
+        if intent == QuestionIntent.CAREER_GUIDANCE or intent == QuestionIntent.MARKET_INTEL:
+            system_content = """You are a career development advisor. Provide specific transition guidance.
+
+CRITICAL RULES:
+1. Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes", not "cloud skills")
+2. Numbered learning steps in priority order
+3. Realistic timeline (weeks/months)
+4. No hashtags, no HTML, no meta commentary
+5. 50-150 words total"""
+
+        elif intent == QuestionIntent.INTERVIEW_SKILLS:
+            system_content = """You are a technical interview coach. Provide specific, actionable advice.
 
 CRITICAL RULES:
 1. Always include at least 3 specific skills/technologies by name
@@ -333,26 +351,10 @@ EXAMPLE GOOD RESPONSE:
 Use metrics: 'Reduced deployment time by 60%' not 'Improved deployments'"
 
 EXAMPLE BAD RESPONSE (never do this):
-"#DevOps #Resume Context: ..."
+"#DevOps #Resume Context: \""""
 
-Question: {question}
-
-Answer:"""
-
-    CAREER_TEMPLATE = """You are a career development advisor. Provide specific transition guidance.
-
-CRITICAL RULES:
-1. Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes", not "cloud skills")
-2. Numbered learning steps in priority order
-3. Realistic timeline (weeks/months)
-4. No hashtags, no HTML, no meta commentary
-5. 50-150 words total
-
-Question: {question}
-
-Answer:"""
-
-    SALARY_TEMPLATE = """You are a compensation analyst. Provide salary guidance in EXACT format.
+        elif intent == QuestionIntent.SALARY_INTEL:
+            system_content = """You are a compensation analyst. Provide salary guidance in EXACT format.
 
 CRITICAL RULES:
 1. Use correct local currency for city (USD/EUR/GBP/INR/SGD/SEK/CHF/etc.)
@@ -368,24 +370,30 @@ Key factors:
 - [Factor 1]
 - [Factor 2]
 - [Factor 3]
-Caveat: Directional figures; actual offers vary.
+Caveat: Directional figures; actual offers vary."""
 
-Question: {question}
+        else:
+            system_content = "You are a helpful career advisor."
 
-Answer:"""
+        return [
+            {"role": "system", "content": system_content},
+            {"role": "user", "content": question}
+        ]
 
     @staticmethod
     def build_prompt(question: str, intent: QuestionIntent) -> str:
-        """Build improved prompt based on intent"""
-        templates = {
-            QuestionIntent.SALARY_INTEL: PromptBuilder.SALARY_TEMPLATE,
-            QuestionIntent.CAREER_GUIDANCE: PromptBuilder.CAREER_TEMPLATE,
-            QuestionIntent.INTERVIEW_SKILLS: PromptBuilder.INTERVIEW_TEMPLATE,
-            QuestionIntent.MARKET_INTEL: PromptBuilder.CAREER_TEMPLATE,  # Reuse career template
-        }
+        """Legacy method - converts messages to ChatML string format
 
-        template = templates.get(intent, PromptBuilder.CAREER_TEMPLATE)
-        return template.format(question=question)
+        DEPRECATED: Use build_messages() with vLLM's chat template instead
+        """
+        messages = PromptBuilder.build_messages(question, intent)
+
+        # Manually format as ChatML for legacy compatibility
+        prompt = f"<|im_start|>system\n{messages[0]['content']}<|im_end|>\n"
+        prompt += f"<|im_start|>user\n{messages[1]['content']}<|im_end|>\n"
+        prompt += "<|im_start|>assistant\n"
+
+        return prompt
 
 def process_question_v3(question: str, raw_response: str) -> Dict:
     """
