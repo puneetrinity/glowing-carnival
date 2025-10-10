@@ -80,7 +80,8 @@ def initialize_engine():
         max_num_batched_tokens=max_num_batched_tokens,
         dtype="auto",
         trust_remote_code=True,
-        enforce_eager=False,  # Keep kernels fused for speed (CUDA graph compilation)
+        # REMOVED: enforce_eager=False causes CUDA graph crashes on startup (exit code 1)
+        # Using vLLM default behavior instead for stability
     )
 
     llm_engine = AsyncLLMEngine.from_engine_args(engine_args)
