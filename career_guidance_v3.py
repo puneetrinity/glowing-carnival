@@ -390,6 +390,140 @@ class ResponseValidator:
 
         return len(issues) == 0, issues
 
+    @staticmethod
+    def validate_resume_guidance(response: str) -> Tuple[bool, List[str]]:
+        """Validate resume guidance responses
+
+        Requires: 5+ bullets, action verbs, reasonable length
+        """
+        issues = []
+
+        # Word count check (100-200 words)
+        word_count = len(response.split())
+        if word_count < 50:
+            issues.append("Response too short (< 50 words)")
+        elif word_count > 250:
+            issues.append("Response too long (> 250 words)")
+
+        # Check for bullets/numbering
+        has_bullets = bool(re.search(r'^\s*[\d\-\*\•]', response, re.MULTILINE))
+        if not has_bullets:
+            issues.append("Missing bullet points or numbered list")
+
+        # Action verb patterns
+        action_verbs = ['led', 'built', 'developed', 'managed', 'created', 'improved', 'optimized', 'designed', 'implemented', 'achieved']
+        has_action_verbs = any(verb in response.lower() for verb in action_verbs)
+        if not has_action_verbs:
+            issues.append("Missing action verbs (Led, Built, Optimized, etc.)")
+
+        return len(issues) == 0, issues
+
+    @staticmethod
+    def validate_job_description(response: str) -> Tuple[bool, List[str]]:
+        """Validate job description responses
+
+        Requires: sections for responsibilities, requirements, nice-to-have
+        """
+        issues = []
+
+        # Word count check (150-250 words)
+        word_count = len(response.split())
+        if word_count < 100:
+            issues.append("Response too short (< 100 words)")
+        elif word_count > 300:
+            issues.append("Response too long (> 300 words)")
+
+        # Check for key sections
+        required_sections = ['responsibilities', 'requirements', 'experience']
+        found_sections = sum(1 for section in required_sections if section in response.lower())
+        if found_sections < 2:
+            issues.append(f"Missing key JD sections (found {found_sections}/3: responsibilities, requirements, experience)")
+
+        # Check for reasonable bullet count
+        bullet_count = len(re.findall(r'^\s*[\d\-\*\•]', response, re.MULTILINE))
+        if bullet_count < 8:
+            issues.append(f"Too few bullets ({bullet_count}, expected 10+)")
+
+        return len(issues) == 0, issues
+
+    @staticmethod
+    def validate_job_resume_match(response: str) -> Tuple[bool, List[str]]:
+        """Validate job-resume matching responses
+
+        Requires: score, matches, gaps, next steps
+        """
+        issues = []
+
+        # Word count check (120-200 words)
+        word_count = len(response.split())
+        if word_count < 80:
+            issues.append("Response too short (< 80 words)")
+
+        # Check for score pattern (0-100)
+        has_score = bool(re.search(r'\b\d{1,3}\s*%|\bscore[:\s]+\d{1,3}', response, re.IGNORECASE))
+        if not has_score:
+            issues.append("Missing match score (0-100)")
+
+        # Check for required sections
+        required_terms = ['match', 'gap', 'skill']
+        found_terms = sum(1 for term in required_terms if term in response.lower())
+        if found_terms < 2:
+            issues.append(f"Missing key matching terms (matches, gaps, skills)")
+
+        return len(issues) == 0, issues
+
+    @staticmethod
+    def validate_recruiting_strategy(response: str) -> Tuple[bool, List[str]]:
+        """Validate recruiting strategy responses
+
+        Requires: channels, cadence/timing, metrics
+        """
+        issues = []
+
+        # Word count check (100-180 words)
+        word_count = len(response.split())
+        if word_count < 60:
+            issues.append("Response too short (< 60 words)")
+
+        # Check for sourcing channels
+        channels = ['linkedin', 'referral', 'meetup', 'university', 'conference', 'github', 'stackoverflow']
+        found_channels = sum(1 for channel in channels if channel in response.lower())
+        if found_channels < 3:
+            issues.append(f"Too few sourcing channels mentioned ({found_channels}, expected 4+)")
+
+        # Check for timing/cadence words
+        timing_words = ['week', 'month', 'quarter', 'daily', 'regularly', 'annually']
+        has_timing = any(word in response.lower() for word in timing_words)
+        if not has_timing:
+            issues.append("Missing cadence/timing information")
+
+        return len(issues) == 0, issues
+
+    @staticmethod
+    def validate_ats_keywords(response: str) -> Tuple[bool, List[str]]:
+        """Validate ATS keywords responses
+
+        Requires: 20-40 keywords, comma-separated or bulleted
+        """
+        issues = []
+
+        # Count comma-separated items or bullet points
+        comma_count = response.count(',')
+        bullet_count = len(re.findall(r'^\s*[\d\-\*\•]', response, re.MULTILINE))
+        keyword_count = max(comma_count + 1, bullet_count)
+
+        if keyword_count < 15:
+            issues.append(f"Too few keywords ({keyword_count}, expected 20-40)")
+        elif keyword_count > 50:
+            issues.append(f"Too many keywords ({keyword_count}, expected 20-40)")
+
+        # Word count check (should be concise)
+        word_count = len(response.split())
+        if word_count < 30:
+            issues.append("Response too short (< 30 words)")
+
+        return len(issues) == 0, issues
+
 class PromptBuilder:
     """Improved prompts for weak categories + non-career domains"""
 
@@ -417,6 +551,38 @@ Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF
 
     GENERAL_QNA_SYSTEM = """You are a helpful assistant. Provide clear, numbered, actionable steps. No metadata, no 'Context:' lines. Keep answers under 200 words."""
 
+    # HR/Recruiting domain prompts
+    RESUME_GUIDANCE_SYSTEM = """You are a career coach specializing in resumes. Provide 6-8 actionable bullets using action verbs (e.g., "Led", "Built", "Optimized"). Include specific tech/tools and metrics where possible. End with ATS keywords line. No metadata. Keep 100-150 words."""
+
+    JOB_DESCRIPTION_SYSTEM = """You are an HR specialist. Create a structured job description with:
+- Summary (2-3 lines)
+- Responsibilities (6-8 bullets)
+- Requirements (6-8 bullets)
+- Nice-to-have (3+ bullets)
+- Benefits (3+ bullets)
+- Location/Type
+Use action-oriented language. No metadata. Keep 150-200 words."""
+
+    JOB_RESUME_MATCH_SYSTEM = """You are a technical recruiter. Provide:
+- Score: 0-100 match percentage
+- Matches: 5+ specific alignments (skills, experience, achievements)
+- Gaps: 3+ missing qualifications
+- Next steps: 3+ recommendations
+Be specific with tech/tools. No metadata. Keep 120-180 words."""
+
+    RECRUITING_STRATEGY_SYSTEM = """You are a talent acquisition specialist. Provide:
+- Channels: 4+ sourcing methods (LinkedIn, referrals, meetups, universities, etc.)
+- Cadence: Specific timing (weekly, monthly, quarterly)
+- Metrics: Success indicators (response rate, time-to-hire, quality-of-hire)
+Be actionable. No metadata. Keep 100-150 words."""
+
+    ATS_KEYWORDS_SYSTEM = """You are a resume optimization specialist. Provide 20-40 ATS keywords comma-separated. Include:
+- Technical skills (languages, frameworks, tools)
+- Soft skills (leadership, communication)
+- Certifications (AWS, Azure, etc.)
+- Domain terms
+Be specific and relevant. No metadata. Keep 80-120 words."""
+
     @staticmethod
     def build_prompt(question: str, intent: QuestionIntent) -> str:
         """Build ChatML-formatted prompt based on intent"""
@@ -438,13 +604,19 @@ Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF
 
     @staticmethod
     def build_domain_prompt(domain: str, question: str) -> str:
-        """Build ChatML-formatted prompt for non-career domains"""
+        """Build ChatML-formatted prompt for non-career and HR domains"""
         domain_prompts = {
             "small_talk": PromptBuilder.SMALL_TALK_SYSTEM,
             "cooking": PromptBuilder.COOKING_SYSTEM,
             "travel": PromptBuilder.TRAVEL_SYSTEM,
             "weather": PromptBuilder.WEATHER_SYSTEM,
             "general_qna": PromptBuilder.GENERAL_QNA_SYSTEM,
+            # HR/Recruiting domains
+            "resume_guidance": PromptBuilder.RESUME_GUIDANCE_SYSTEM,
+            "job_description": PromptBuilder.JOB_DESCRIPTION_SYSTEM,
+            "job_resume_match": PromptBuilder.JOB_RESUME_MATCH_SYSTEM,
+            "recruiting_strategy": PromptBuilder.RECRUITING_STRATEGY_SYSTEM,
+            "ats_keywords": PromptBuilder.ATS_KEYWORDS_SYSTEM,
         }
 
         system_prompt = domain_prompts.get(domain, PromptBuilder.GENERAL_QNA_SYSTEM)

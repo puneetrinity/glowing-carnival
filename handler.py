@@ -132,6 +132,27 @@ NON_CAREER_DOMAINS = {
         "homebrew", "apt ", "yum", "pip ", "npm ", "yarn", "git ", "github", "gitlab",
         "aws ", "azure", "gcp", "cloud", "serverless", "lambda"
     ],
+    # HR/Recruiting domains
+    "resume_guidance": [
+        "resume", "cv ", "curriculum vitae", "write resume", "create resume", "resume tips",
+        "resume guidance", "resume help", "improve resume", "resume keywords", "resume bullet"
+    ],
+    "job_description": [
+        "job description", "jd ", "job posting", "job ad", "write job description",
+        "create job description", "draft jd", "job requirements"
+    ],
+    "job_resume_match": [
+        "match resume", "match candidate", "resume match", "fit for role", "candidate fit",
+        "evaluate resume", "assess candidate", "resume score"
+    ],
+    "recruiting_strategy": [
+        "recruiting", "recruitment", "hiring strategy", "sourcing", "talent acquisition",
+        "find candidates", "recruit ", "hiring plan", "candidate sourcing"
+    ],
+    "ats_keywords": [
+        "ats keywords", "ats ", "applicant tracking", "resume keywords", "keyword optimization",
+        "resume scanner", "ats system"
+    ],
 }
 
 
@@ -175,6 +196,11 @@ You are an intent classifier. Classify the user's question into ONE of these int
 - interview_skills: Interview prep, resume, networking
 - salary_intelligence: Salary, compensation, pay ranges
 - market_intel: Job market trends, demand, hiring
+- resume_guidance: Resume writing, CV tips, resume improvement
+- job_description: Job posting creation, JD writing
+- job_resume_match: Candidate-job matching, resume evaluation
+- recruiting_strategy: Sourcing, hiring channels, recruitment planning
+- ats_keywords: ATS optimization, resume keywords
 - cooking: Recipes, food preparation
 - travel: Travel planning, destinations, logistics
 - weather: Weather forecasts, conditions
@@ -359,7 +385,10 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 # Routing thresholds
                 if llm_conf >= 0.6:
                     # Trust LLM classification
-                    if llm_intent in ["cooking", "travel", "weather", "small_talk", "general_qna"]:
+                    non_career_intents = ["cooking", "travel", "weather", "small_talk", "general_qna",
+                                         "resume_guidance", "job_description", "job_resume_match",
+                                         "recruiting_strategy", "ats_keywords"]
+                    if llm_intent in non_career_intents:
                         routed_domain = llm_intent
                         prompt = PromptBuilder.build_domain_prompt(llm_intent, user_question)
                         enable_validation = False
