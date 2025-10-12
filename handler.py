@@ -103,6 +103,10 @@ def initialize_engine():
     return llm_engine
 
 
+# --- Hybrid Router Configuration ---
+USE_LLM_ROUTER = os.getenv("USE_LLM_ROUTER", "false").lower() == "true"
+
+
 # --- Hybrid Router (Phase 1: Heuristics) ---
 NON_CAREER_DOMAINS = {
     "cooking": [
@@ -142,6 +146,78 @@ def heuristic_route(question: str):
                 conf = 0.9 if domain != "general_qna" else 0.8
                 return domain, conf
     return None, 0.0
+
+
+# --- Hybrid Router (Phase 2: LLM Router) ---
+async def classify_with_llm(question: str) -> dict:
+    """Use LLM to classify question intent when heuristics are uncertain.
+
+    Returns: {"intent": str, "confidence": float}
+
+    Routing thresholds:
+    - conf >= 0.6: Trust classification
+    - 0.4 <= conf < 0.6: Use heuristic hint if present, else general_qna
+    - conf < 0.4: Fallback to general_qna
+    """
+    engine = initialize_engine()
+
+    # Build strict JSON classification prompt
+    classification_prompt = f"""<|im_start|>system
+You are an intent classifier. Classify the user's question into ONE of these intents:
+- career_guidance: Career paths, transitions, skill development
+- interview_skills: Interview prep, resume, networking
+- salary_intelligence: Salary, compensation, pay ranges
+- market_intel: Job market trends, demand, hiring
+- cooking: Recipes, food preparation
+- travel: Travel planning, destinations, logistics
+- weather: Weather forecasts, conditions
+- small_talk: Greetings, thanks, casual chat
+- general_qna: How-to, technical questions, explanations
+
+Respond ONLY with valid JSON: {{"intent": "intent_name", "confidence": 0.0-1.0}}
+<|im_end|>
+<|im_start|>user
+{question}<|im_end|>
+<|im_start|>assistant
+{{"""
+
+    sampling_params = SamplingParams(
+        max_tokens=60,
+        temperature=0.0,
+        stop=["<|im_end|>"],
+    )
+
+    request_id = f"router-{os.urandom(4).hex()}"
+
+    try:
+        # Generate classification
+        result_generator = engine.generate(classification_prompt, sampling_params, request_id)
+
+        final_output = None
+        async for request_output in result_generator:
+            if request_output.finished:
+                final_output = request_output.outputs[0].text
+
+        if not final_output:
+            raise ValueError("LLM router returned no output")
+
+        # Parse JSON response (add closing brace if missing)
+        json_text = final_output.strip()
+        if not json_text.startswith("{"):
+            json_text = "{" + json_text
+        if not json_text.endswith("}"):
+            json_text = json_text + "}"
+
+        result = json.loads(json_text)
+        intent = result.get("intent", "general_qna")
+        confidence = float(result.get("confidence", 0.5))
+
+        return {"intent": intent, "confidence": confidence}
+
+    except (json.JSONDecodeError, ValueError, KeyError) as e:
+        # Parse-safe fallback
+        print(f"⚠ LLM router parse error: {e}, falling back to general_qna")
+        return {"intent": "general_qna", "confidence": 0.3}
 
 
 def build_domain_prompt(domain: str, question: str) -> str:
@@ -299,7 +375,40 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 # Disable career validation for non-career domains
                 enable_validation = False
                 log_json("route", request_id, router="heuristic", router_intent=h_domain, router_conf=h_conf)
-            else:
+            elif USE_LLM_ROUTER and h_conf < 0.80:
+                # Phase 2: LLM router for uncertain cases
+                llm_result = await classify_with_llm(user_question)
+                llm_intent = llm_result["intent"]
+                llm_conf = llm_result["confidence"]
+
+                log_json("route", request_id, router="llm", router_intent=llm_intent, router_conf=llm_conf)
+
+                # Routing thresholds
+                if llm_conf >= 0.6:
+                    # Trust LLM classification
+                    if llm_intent in ["cooking", "travel", "weather", "small_talk", "general_qna"]:
+                        routed_domain = llm_intent
+                        prompt = build_domain_prompt(llm_intent, user_question)
+                        enable_validation = False
+                    # else: let career intents fall through to V3 validation
+                elif llm_conf >= 0.4:
+                    # Use heuristic hint if present, else general_qna
+                    if h_domain:
+                        routed_domain = h_domain
+                        prompt = build_domain_prompt(h_domain, user_question)
+                        enable_validation = False
+                    else:
+                        routed_domain = "general_qna"
+                        prompt = build_domain_prompt("general_qna", user_question)
+                        enable_validation = False
+                else:
+                    # Low confidence: default to general_qna
+                    routed_domain = "general_qna"
+                    prompt = build_domain_prompt("general_qna", user_question)
+                    enable_validation = False
+
+            # If not routed by heuristics or LLM, proceed with V3 validation
+            if routed_domain is None:
                 # V3: Classify intent and block if needed
                 intent = None
                 if USE_V3_VALIDATION and enable_validation:
