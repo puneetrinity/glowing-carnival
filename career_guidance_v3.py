@@ -63,14 +63,24 @@ class AutoSanitizer:
         original_length = len(text)
         cleaned = text
 
+        # Light prefix trimmer: Remove leading role labels and question fragments
+        # Remove leading "Assistant:" or "User:" labels
+        cleaned = re.sub(r'^\s*(Assistant|User)\s*:\s*', '', cleaned, flags=re.IGNORECASE)
+
+        # Remove leading short question fragments (< 60 chars ending in ?)
+        # Examples: "more meaningfully and purposefully?", "without eggs?"
+        lines = cleaned.split('\n', 1)
+        if lines and len(lines[0]) < 60 and lines[0].strip().endswith('?'):
+            cleaned = lines[1] if len(lines) > 1 else ''
+
+        # Remove common leading fragments
+        cleaned = re.sub(r'^\s*(from scratch|without \w+)\?\s*', '', cleaned, flags=re.IGNORECASE)
+
         # Remove hashtags
         cleaned = re.sub(r'#\w+', '', cleaned)
 
         # Remove HTML
         cleaned = re.sub(r'<[^>]+>', '', cleaned)
-
-        # Remove markdown headings like #, ##, ###
-        cleaned = re.sub(r'^\s*#{1,6}\s+.*$', '', cleaned, flags=re.MULTILINE)
 
         # Remove meta patterns
         cleaned = re.sub(r'Context:.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
@@ -80,18 +90,18 @@ class AutoSanitizer:
         cleaned = re.sub(r"What'?s it like to work at.*?(?:\n|$)", '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'Answered.*?years? ago', '', cleaned, flags=re.IGNORECASE)
 
-        # Remove job-posting style artifacts
-        cleaned = re.sub(r'^\s*(Job Description|Experience|Location|Salary Range)\s*:.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
-
-        # Remove repeated bracket tag spam like [Resume] [DevOps Engineer] ...
-        cleaned = re.sub(r'(?:\[[^\]]+\]\s*){2,}', '', cleaned)
-
         # Remove standalone pipes (but preserve in ranges)
         cleaned = re.sub(r'^\s*\|', '', cleaned, flags=re.MULTILINE)
         cleaned = re.sub(r'\|\s*$', '', cleaned, flags=re.MULTILINE)
 
         # Remove chat tokens
         cleaned = re.sub(r'<\|[^>]+\|>', '', cleaned)
+
+        # Remove trailing artifacts: [END], [Truncated], [Read more], etc.
+        cleaned = re.sub(r'\s*\[(END|Truncated|Read more|Continue reading)\].*$', '', cleaned, flags=re.IGNORECASE | re.DOTALL)
+
+        # Remove trailing ellipsis spam (3+ consecutive dots or periods)
+        cleaned = re.sub(r'(\.\s*){3,}$', '', cleaned)
 
         # Clean whitespace
         cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', cleaned)
@@ -236,11 +246,11 @@ class ResponseValidator:
 
     @staticmethod
     def check_length(response: str) -> Tuple[bool, Optional[str]]:
-        """Check response length (RELAXED: was 20, now 10 words min)"""
+        """Check response length"""
         word_count = len(response.split())
 
-        if word_count < 10:
-            return False, "Response too short (< 10 words)"
+        if word_count < 20:
+            return False, "Response too short (< 20 words)"
         elif word_count > 250:
             return False, "Response too long (> 250 words) - may be contaminated"
 
@@ -248,11 +258,11 @@ class ResponseValidator:
 
     @staticmethod
     def check_repetition(response: str) -> Tuple[bool, Optional[str]]:
-        """Check for repetition (RELAXED: was 0.35, now 0.20)"""
+        """Check for repetition"""
         words = response.split()
         if len(words) > 20:
             unique_ratio = len(set(words)) / len(words)
-            if unique_ratio < 0.20:  # Very lenient - allow structured/templated responses
+            if unique_ratio < 0.35:  # More lenient
                 return False, f"Repetitive content (unique ratio: {unique_ratio:.2f})"
 
         return True, None
@@ -317,130 +327,45 @@ class ResponseValidator:
 
         return len(issues) == 0, issues
 
-    @staticmethod
-    def validate_market_response(response: str) -> Tuple[bool, List[str]]:
-        """Validate market intelligence response: require industries + rationale, disallow job-posting noise"""
-        issues: List[str] = []
-
-        text = response.lower()
-
-        # Require at least 2 industries/sectors
-        industries = [
-            'healthcare', 'fintech', 'e-commerce', 'retail', 'manufacturing', 'automotive',
-            'gaming', 'pharma', 'biotech', 'energy', 'clean energy', 'telecom', 'media',
-            'adtech', 'cybersecurity', 'security', 'ai', 'machine learning', 'cloud', 'saas'
-        ]
-        found = [w for w in industries if w in text]
-        if len(set(found)) < 2:
-            issues.append("Mention at least two industries/sectors")
-
-        # Require rationale indicators
-        rationale_kw = ['because', 'due to', 'driven by', 'trend', 'demand', 'hiring', 'growth']
-        if not any(k in text for k in rationale_kw):
-            issues.append("Missing rationale for why industries are hiring")
-
-        # Disallow salary/job-post artifacts
-        if ResponseValidator.has_numeric_range(response):
-            issues.append("Contains salary range/job-posting artifacts")
-        if re.search(r'^\s*(job description|experience|location)\s*:', response, flags=re.IGNORECASE | re.MULTILINE):
-            issues.append("Contains job-posting fields (Experience/Location)")
-
-        # Length and repetition checks (reuse helpers)
-        ok_len, len_issue = ResponseValidator.check_length(response)
-        if not ok_len:
-            issues.append(len_issue)
-        ok_rep, rep_issue = ResponseValidator.check_repetition(response)
-        if not ok_rep:
-            issues.append(rep_issue)
-
-        return len(issues) == 0, issues
-
 class PromptBuilder:
-    """Build ChatML-formatted message arrays for career guidance"""
+    """Improved prompts for weak categories"""
 
-    @staticmethod
-    def build_messages(question: str, intent: QuestionIntent) -> list:
-        """Build messages array with proper system prompt based on intent
+    INTERVIEW_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-        Returns list of dicts with 'role' and 'content' keys for ChatML formatting
-        """
+Name 4-5 specific tools/frameworks (e.g., "Terraform", "Kubernetes", not generic terms). Focus on concrete preparation steps.
 
-        if intent == QuestionIntent.CAREER_GUIDANCE or intent == QuestionIntent.MARKET_INTEL:
-            system_content = """You are a career development advisor. Provide specific transition guidance.
+Question: {question}
 
-CRITICAL RULES:
-1. Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes", not "cloud skills")
-2. Numbered learning steps in priority order
-3. Realistic timeline (weeks/months)
-4. No hashtags, no HTML, no meta commentary
-5. 50-150 words total"""
+Answer:"""
 
-        elif intent == QuestionIntent.INTERVIEW_SKILLS:
-            system_content = """You are a technical interview coach. Provide specific, actionable advice.
+    CAREER_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-CRITICAL RULES:
-1. Always include at least 3 specific skills/technologies by name
-2. No hashtags, no HTML, no forum artifacts
-3. Minimum 50 words, maximum 150 words
-4. Focus on concrete steps, not generic advice
+Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes"). Include realistic timeline (weeks/months).
 
-FORMAT:
-- Specific skills: [List 3-5 with examples]
-- Preparation steps: [Numbered list]
-- Timeline/Resources: [Brief mention]
+Question: {question}
 
-EXAMPLE GOOD RESPONSE:
-"For a DevOps Engineer resume, highlight:
-1. Infrastructure as Code tools (Terraform, CloudFormation)
-2. CI/CD platforms (Jenkins, GitLab CI, GitHub Actions)
-3. Container orchestration (Kubernetes, Docker Swarm)
-4. Monitoring tools (Prometheus, Grafana, DataDog)
-Use metrics: 'Reduced deployment time by 60%' not 'Improved deployments'"
+Answer:"""
 
-EXAMPLE BAD RESPONSE (never do this):
-"#DevOps #Resume Context: \""""
+    SALARY_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-        elif intent == QuestionIntent.SALARY_INTEL:
-            system_content = """You are a compensation analyst. Provide salary guidance in EXACT format.
+Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF). Include numeric range and 2-3 factors affecting compensation.
 
-CRITICAL RULES:
-1. Use correct local currency for city (USD/EUR/GBP/INR/SGD/SEK/CHF/etc.)
-2. Provide specific numeric range with median
-3. Mention 2-3 factors affecting range
-4. No hashtags, links, HTML
-5. Under 150 words
+Question: {question}
 
-FORMAT:
-Role & Location: [role], [years], [city]
-Typical range: [CURRENCY] [low]–[high] (median ~[mid])
-Key factors:
-- [Factor 1]
-- [Factor 2]
-- [Factor 3]
-Caveat: Directional figures; actual offers vary."""
-
-        else:
-            system_content = "You are a helpful career advisor."
-
-        return [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": question}
-        ]
+Answer:"""
 
     @staticmethod
     def build_prompt(question: str, intent: QuestionIntent) -> str:
-        """Legacy method - converts messages to ChatML string format
+        """Build improved prompt based on intent"""
+        templates = {
+            QuestionIntent.SALARY_INTEL: PromptBuilder.SALARY_TEMPLATE,
+            QuestionIntent.CAREER_GUIDANCE: PromptBuilder.CAREER_TEMPLATE,
+            QuestionIntent.INTERVIEW_SKILLS: PromptBuilder.INTERVIEW_TEMPLATE,
+            QuestionIntent.MARKET_INTEL: PromptBuilder.CAREER_TEMPLATE,  # Reuse career template
+        }
 
-        DEPRECATED: Use build_messages() with vLLM's chat template instead
-        """
-        messages = PromptBuilder.build_messages(question, intent)
-
-        # Manually format as ChatML for legacy compatibility
-        prompt = f"<|im_start|>system\n{messages[0]['content']}<|im_end|>\n"
-        prompt += f"<|im_start|>user\n{messages[1]['content']}<|im_end|>\n"
-        prompt += "<|im_start|>assistant\n"
-
-        return prompt
+        template = templates.get(intent, PromptBuilder.CAREER_TEMPLATE)
+        return template.format(question=question)
 
 def process_question_v3(question: str, raw_response: str) -> Dict:
     """
