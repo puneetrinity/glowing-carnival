@@ -23,16 +23,24 @@ POST to your RunPod endpoint (`/runsync` or `/run`) with `stream=true`:
       "temperature": 0.7,
       "stream": true
     },
-    "enable_validation": true
+    "enable_validation": true,
+    "block_low_trust_intents": true
   }
 }
-``
+```
 
-Notes:
+**Request parameters:**
+- `prompt` (required): User question
+- `sampling_params.stream` (optional): Enable delta streaming (default: `false`)
+- `enable_validation` (optional): Enable V3 validation (default: `true`)
+- `block_low_trust_intents` (optional): Block salary/market intents (default: `true`)
+
+**Notes:**
 - `stream: true` enables delta generation internally. The network response is a
   single JSON with all deltas aggregated.
 - Validation (V3) runs on the final text. If sanitization modifies text, deltas
   reflect the model output, while `choices[0].text` reflects the sanitized final.
+- When `block_low_trust_intents: true`, salary/market queries return a `blocked` response.
 
 ## Response (stream=true)
 
@@ -82,6 +90,20 @@ Field semantics:
   "streaming": false
 }
 ```
+
+## Blocked Response (salary/market intents)
+
+When `block_low_trust_intents: true` and the intent is salary or market intel:
+
+```json
+{
+  "blocked": true,
+  "intent": "salary_intel",
+  "message": "This question requires real-time compensation/market data. We're integrating with trusted data sources (Levels.fyi, BLS.gov) to provide accurate, up-to-date information. In the meantime, try asking about career transitions, skill development, interview preparation, or learning paths. Expected availability: 2-4 weeks."
+}
+```
+
+To allow these queries, set `block_low_trust_intents: false` or disable validation entirely with `enable_validation: false`.
 
 ## Rationale
 

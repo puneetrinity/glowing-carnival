@@ -200,6 +200,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         sampling_config = job_input.get("sampling_params", {})
         stream = sampling_config.get("stream", False)
         enable_validation = job_input.get("enable_validation", USE_V3_VALIDATION)
+        block_low_trust = job_input.get("block_low_trust_intents", True)
 
         # Guardrail: Clamp max_tokens for chat (prevents abuse, maintains quality)
         max_tokens = sampling_config.get("max_tokens", 150)
@@ -220,7 +221,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             print(f"Intent classified: {intent.value}")
 
             # Block salary/market queries (low validation rates)
-            if intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
+            if block_low_trust and intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
                 log_json("end", request_id,
                          ok=False,
                          exec_ms=int((time.time() - request_start) * 1000),

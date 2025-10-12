@@ -54,10 +54,9 @@ export DOCKER_USERNAME="your-dockerhub-username"
 ```bash
 # Get endpoint ID from deploy.sh output
 ENDPOINT_ID="your-endpoint-id"
-ENDPOINT_URL="https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync"
 
-# Test request
-curl -X POST "${ENDPOINT_URL}" \
+# Synchronous (recommended for testing - immediate response)
+curl -X POST "https://api.runpod.ai/v2/${ENDPOINT_ID}/runsync" \
   -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
@@ -67,9 +66,64 @@ curl -X POST "${ENDPOINT_URL}" \
         "max_tokens": 150,
         "temperature": 0.7,
         "stream": true
-      }
+      },
+      "enable_validation": true
     }
   }'
+
+# Asynchronous (for production - returns job ID, poll /status/{id})
+curl -X POST "https://api.runpod.ai/v2/${ENDPOINT_ID}/run" \
+  -H "Authorization: Bearer ${RUNPOD_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": {
+      "prompt": "What career path should I take as a software engineer?",
+      "sampling_params": { "max_tokens": 150, "temperature": 0.7 }
+    }
+  }'
+
+# Then poll for results
+JOB_ID="returned-from-above"
+curl "https://api.runpod.ai/v2/${ENDPOINT_ID}/status/${JOB_ID}" \
+  -H "Authorization: Bearer ${RUNPOD_API_KEY}"
+```
+
+## 🛡️ Validation Controls
+
+The handler includes V3 validation that blocks low-accuracy intents (salary/market queries). You can control this behavior:
+
+### Disable all validation
+```json
+{
+  "input": {
+    "prompt": "Your question here",
+    "enable_validation": false
+  }
+}
+```
+
+### Keep validation but allow salary/market queries
+```json
+{
+  "input": {
+    "prompt": "What's the typical salary for a Solutions Architect in Stockholm?",
+    "enable_validation": true,
+    "block_low_trust_intents": false
+  }
+}
+```
+
+**Default behavior:**
+- `enable_validation`: `true` (uses V3 validation)
+- `block_low_trust_intents`: `true` (blocks salary/market intents)
+
+**Blocked response format:**
+```json
+{
+  "blocked": true,
+  "intent": "salary_intel",
+  "message": "This question requires real-time compensation/market data..."
+}
 ```
 
 ## 📈 Monitor & Manage
