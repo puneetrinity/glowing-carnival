@@ -339,9 +339,61 @@ class ResponseValidator:
 
         return len(issues) == 0, issues
 
-class PromptBuilder:
-    """Improved prompts for weak categories"""
+    @staticmethod
+    def validate_general_response(response: str, domain: str = "general_qna") -> Tuple[bool, List[str]]:
+        """Validate non-career domain responses
 
+        Checks:
+        - Length: 10-200 words (skip for small_talk)
+        - Repetition: unique ratio > 0.35
+        - No training artifacts: "Multi-choice problem", "Answer according to:", forum references
+        """
+        issues = []
+
+        # Skip validation for small_talk (short responses are expected)
+        if domain == "small_talk":
+            return True, []
+
+        # Length check (10-200 words)
+        word_count = len(response.split())
+        if word_count < 10:
+            issues.append("Response too short (< 10 words)")
+        elif word_count > 200:
+            issues.append("Response too long (> 200 words)")
+
+        # Repetition check
+        words = response.split()
+        if len(words) > 10:
+            unique_ratio = len(set(words)) / len(words)
+            if unique_ratio < 0.35:
+                issues.append(f"Repetitive content (unique ratio: {unique_ratio:.2f})")
+
+        # Training artifact checks
+        artifact_patterns = [
+            r'Multi-choice problem:',
+            r'Answer according to:',
+            r'Multi-choice question:',
+            r'Choose the correct answer:',
+            r'Select all that apply:',
+            r'Forum Post:',
+            r'Discussion Thread:',
+            r'\[Forum\]',
+            r'\[Source:',
+            r'Posted by:',
+            r'Original Question:',
+        ]
+
+        for pattern in artifact_patterns:
+            if re.search(pattern, response, re.IGNORECASE):
+                issues.append(f"Training artifact detected: {pattern}")
+                break
+
+        return len(issues) == 0, issues
+
+class PromptBuilder:
+    """Improved prompts for weak categories + non-career domains"""
+
+    # Career-focused prompts
     INTERVIEW_SYSTEM = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
 Name 4-5 specific tools/frameworks (e.g., "Terraform", "Kubernetes", not generic terms). Focus on concrete preparation steps."""
@@ -354,6 +406,17 @@ Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes"). Include realistic ti
 
 Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF). Include numeric range and 2-3 factors affecting compensation."""
 
+    # Non-career domain prompts
+    SMALL_TALK_SYSTEM = """You are a friendly assistant. Respond warmly and briefly to casual conversation. No metadata, no 'Context:' lines."""
+
+    COOKING_SYSTEM = """You are a cooking assistant. Provide ingredients and numbered, actionable steps. No metadata, no 'Context:' lines. Keep answers under 200 words."""
+
+    TRAVEL_SYSTEM = """You are a travel assistant. Provide concise, actionable recommendations and logistics in numbered steps. No metadata, no 'Context:' lines. Keep answers under 200 words."""
+
+    WEATHER_SYSTEM = """You are a helpful assistant. If asked for current weather, explain how to check it and what to look for. No metadata, no 'Context:' lines. Keep answers under 120 words."""
+
+    GENERAL_QNA_SYSTEM = """You are a helpful assistant. Provide clear, numbered, actionable steps. No metadata, no 'Context:' lines. Keep answers under 200 words."""
+
     @staticmethod
     def build_prompt(question: str, intent: QuestionIntent) -> str:
         """Build ChatML-formatted prompt based on intent"""
@@ -365,6 +428,26 @@ Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF
         }
 
         system_prompt = system_prompts.get(intent, PromptBuilder.CAREER_SYSTEM)
+
+        # Format as ChatML
+        prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+        prompt += f"<|im_start|>user\n{question}<|im_end|>\n"
+        prompt += "<|im_start|>assistant\n"
+
+        return prompt
+
+    @staticmethod
+    def build_domain_prompt(domain: str, question: str) -> str:
+        """Build ChatML-formatted prompt for non-career domains"""
+        domain_prompts = {
+            "small_talk": PromptBuilder.SMALL_TALK_SYSTEM,
+            "cooking": PromptBuilder.COOKING_SYSTEM,
+            "travel": PromptBuilder.TRAVEL_SYSTEM,
+            "weather": PromptBuilder.WEATHER_SYSTEM,
+            "general_qna": PromptBuilder.GENERAL_QNA_SYSTEM,
+        }
+
+        system_prompt = domain_prompts.get(domain, PromptBuilder.GENERAL_QNA_SYSTEM)
 
         # Format as ChatML
         prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"

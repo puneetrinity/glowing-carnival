@@ -220,40 +220,6 @@ Respond ONLY with valid JSON: {{"intent": "intent_name", "confidence": 0.0-1.0}}
         return {"intent": "general_qna", "confidence": 0.3}
 
 
-def build_domain_prompt(domain: str, question: str) -> str:
-    """Build simple ChatML prompt for non-career domains"""
-    if domain == "small_talk":
-        system = (
-            "You are a friendly assistant. Respond warmly and briefly to casual conversation. "
-            "No metadata, no 'Context:' lines."
-        )
-    elif domain == "cooking":
-        system = (
-            "You are a cooking assistant. Provide ingredients and numbered, actionable steps. "
-            "No metadata, no 'Context:' lines. Keep answers under 200 words."
-        )
-    elif domain == "travel":
-        system = (
-            "You are a travel assistant. Provide concise, actionable recommendations and logistics in numbered steps. "
-            "No metadata, no 'Context:' lines. Keep answers under 200 words."
-        )
-    elif domain == "weather":
-        system = (
-            "You are a helpful assistant. If asked for current weather, explain how to check it and what to look for. "
-            "No metadata, no 'Context:' lines. Keep answers under 120 words."
-        )
-    else:  # general_qna
-        system = (
-            "You are a helpful assistant. Provide clear, numbered, actionable steps. "
-            "No metadata, no 'Context:' lines. Keep answers under 200 words."
-        )
-
-    prompt = f"<|im_start|>system\n{system}<|im_end|>\n"
-    prompt += f"<|im_start|>user\n{question}<|im_end|>\n"
-    prompt += "<|im_start|>assistant\n"
-    return prompt
-
-
 async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Generator[Dict, None, None]:
     """Generate tokens with streaming - emits only new deltas"""
     engine = initialize_engine()
@@ -371,7 +337,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             h_domain, h_conf = heuristic_route(user_question)
             if h_domain and h_conf >= 0.80:
                 routed_domain = h_domain
-                prompt = build_domain_prompt(h_domain, user_question)
+                prompt = PromptBuilder.build_domain_prompt(h_domain, user_question)
                 # Disable career validation for non-career domains
                 enable_validation = False
                 log_json("route", request_id, router="heuristic", router_intent=h_domain, router_conf=h_conf)
@@ -388,23 +354,23 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     # Trust LLM classification
                     if llm_intent in ["cooking", "travel", "weather", "small_talk", "general_qna"]:
                         routed_domain = llm_intent
-                        prompt = build_domain_prompt(llm_intent, user_question)
+                        prompt = PromptBuilder.build_domain_prompt(llm_intent, user_question)
                         enable_validation = False
                     # else: let career intents fall through to V3 validation
                 elif llm_conf >= 0.4:
                     # Use heuristic hint if present, else general_qna
                     if h_domain:
                         routed_domain = h_domain
-                        prompt = build_domain_prompt(h_domain, user_question)
+                        prompt = PromptBuilder.build_domain_prompt(h_domain, user_question)
                         enable_validation = False
                     else:
                         routed_domain = "general_qna"
-                        prompt = build_domain_prompt("general_qna", user_question)
+                        prompt = PromptBuilder.build_domain_prompt("general_qna", user_question)
                         enable_validation = False
                 else:
                     # Low confidence: default to general_qna
                     routed_domain = "general_qna"
-                    prompt = build_domain_prompt("general_qna", user_question)
+                    prompt = PromptBuilder.build_domain_prompt("general_qna", user_question)
                     enable_validation = False
 
             # If not routed by heuristics or LLM, proceed with V3 validation
