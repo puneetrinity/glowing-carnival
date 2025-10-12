@@ -411,26 +411,56 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             # Validation disabled up-front
             prompt = user_question
 
-        # Build sampling parameters
-        sampling_params = SamplingParams(
-            max_tokens=sampling_config.get("max_tokens", 150),
-            temperature=sampling_config.get("temperature", 0.3),
-            top_p=sampling_config.get("top_p", 0.9),
-            top_k=sampling_config.get("top_k", 50),
-            presence_penalty=sampling_config.get("presence_penalty", 0.0),
-            frequency_penalty=sampling_config.get("frequency_penalty", 0.2),
-            repetition_penalty=sampling_config.get("repetition_penalty", 1.15),
-            stop=sampling_config.get(
-                "stop",
-                [
+        # Phase 4: Domain-specific decoding parameters
+        # Map defaults per domain (can be overridden by sampling_config)
+        if routed_domain == "small_talk":
+            domain_defaults = {
+                "temperature": 0.4,
+                "stop": ["<|im_end|>"],
+                "repetition_penalty": 1.0,
+                "frequency_penalty": 0.0,
+            }
+        elif routed_domain in ["cooking", "general_qna", "travel", "weather"]:
+            domain_defaults = {
+                "temperature": 0.3,
+                "repetition_penalty": 1.15,
+                "frequency_penalty": 0.2,
+                "stop": [
+                    "<|im_end|>",
+                    "[Tailored",
+                    "[End",
+                    "Context:",
+                    "Tags:",
+                    "Multi-choice problem:",
+                    "Answer according to:",
+                ],
+            }
+        else:
+            # Career/interview defaults
+            domain_defaults = {
+                "temperature": 0.3,
+                "repetition_penalty": 1.15,
+                "frequency_penalty": 0.2,
+                "stop": [
                     "<|im_end|>",
                     "[Tailored",
                     "[Career",
                     "[End",
                     "Context:",
                     "Tags:"
-                ]
-            ),
+                ],
+            }
+
+        # Build sampling parameters (user config overrides domain defaults)
+        sampling_params = SamplingParams(
+            max_tokens=sampling_config.get("max_tokens", 150),
+            temperature=sampling_config.get("temperature", domain_defaults.get("temperature", 0.3)),
+            top_p=sampling_config.get("top_p", 0.9),
+            top_k=sampling_config.get("top_k", 50),
+            presence_penalty=sampling_config.get("presence_penalty", domain_defaults.get("presence_penalty", 0.0)),
+            frequency_penalty=sampling_config.get("frequency_penalty", domain_defaults.get("frequency_penalty", 0.2)),
+            repetition_penalty=sampling_config.get("repetition_penalty", domain_defaults.get("repetition_penalty", 1.15)),
+            stop=sampling_config.get("stop", domain_defaults.get("stop", ["<|im_end|>"])),
         )
 
         # Generate response
