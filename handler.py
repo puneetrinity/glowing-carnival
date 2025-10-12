@@ -20,6 +20,8 @@ import sys
 import json
 import uuid
 import time
+import atexit
+import signal
 from datetime import datetime, timezone
 
 # Import V3 validation logic (use symlinked path in container)
@@ -40,6 +42,30 @@ except ImportError as e:
 
 # Global vLLM engine instance
 llm_engine = None
+
+# Graceful shutdown handler to reduce NCCL warnings
+# Note: Set NCCL_ASYNC_ERROR_HANDLING=1 in environment for better NCCL cleanup
+def _shutdown_handler(signum=None, frame=None):
+    """Gracefully shutdown vLLM engine to prevent NCCL teardown warnings
+
+    Reduces "ProcessGroupNCCL has NOT been destroyed" warnings on worker teardown.
+    Works with SIGTERM (container stop), SIGINT (Ctrl+C), and atexit (normal exit).
+    """
+    global llm_engine
+    if llm_engine is not None:
+        try:
+            print("🔄 Gracefully shutting down vLLM engine...")
+            # vLLM AsyncEngine doesn't have a public shutdown method in 0.6.4.post1
+            # Best effort: let Python's GC handle cleanup properly
+            llm_engine = None
+            print("✓ Engine shutdown initiated")
+        except Exception as e:
+            print(f"⚠ Error during shutdown: {e}")
+
+# Register shutdown handlers
+atexit.register(_shutdown_handler)
+signal.signal(signal.SIGTERM, _shutdown_handler)
+signal.signal(signal.SIGINT, _shutdown_handler)
 
 # Structured logging functions
 def log_json(event: str, request_id: str, **kwargs):
