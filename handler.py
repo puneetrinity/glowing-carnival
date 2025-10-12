@@ -186,9 +186,27 @@ def heuristic_route(question: str):
     """Heuristic pre-check for obvious non-career intents.
 
     Returns (domain: Optional[str], confidence: float)
+
+    Tie-break priority (when confidence equal):
+    small_talk > ats_keywords > job_description > resume_guidance >
+    job_resume_match > recruiting_strategy > cooking/travel/weather > general_qna
     """
     q = question.lower()
     matches = []
+
+    # Domain priority for tie-breaking (higher = more specific)
+    DOMAIN_PRIORITY = {
+        "small_talk": 10,
+        "ats_keywords": 9,
+        "job_description": 8,
+        "resume_guidance": 7,
+        "job_resume_match": 6,
+        "recruiting_strategy": 5,
+        "cooking": 4,
+        "travel": 4,
+        "weather": 4,
+        "general_qna": 1,
+    }
 
     for domain, keywords in NON_CAREER_DOMAINS.items():
         for kw in keywords:
@@ -200,14 +218,17 @@ def heuristic_route(question: str):
                     conf = 0.8
                 else:
                     conf = 0.9
-                matches.append((domain, conf))
+
+                priority = DOMAIN_PRIORITY.get(domain, 0)
+                matches.append((domain, conf, priority))
                 break  # One match per domain is enough
 
     if not matches:
         return None, 0.0
 
-    # Return highest confidence match (specific domains beat general_qna)
-    return max(matches, key=lambda x: x[1])
+    # Sort by confidence DESC, then priority DESC (tie-breaker)
+    best_match = max(matches, key=lambda x: (x[1], x[2]))
+    return best_match[0], best_match[1]
 
 
 # --- Hybrid Router (Phase 2: LLM Router) ---
@@ -396,16 +417,14 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             "ats_keywords": 150,
         }
 
-        max_tokens = sampling_config.get("max_tokens")
-        if max_tokens is None:
-            max_tokens = 150  # Global default
-        max_tokens = max(64, min(256, max_tokens))  # Clamp to [64, 256]
-        sampling_config["max_tokens"] = max_tokens
+        # Get user's max_tokens for logging (don't force default here - domain logic handles it)
+        max_tokens_for_logging = sampling_config.get("max_tokens", 150)
+        max_tokens_for_logging = max(64, min(256, max_tokens_for_logging))
 
         # Log request start
         log_json("start", request_id,
                  prompt_len=len(user_question),
-                 max_tokens=max_tokens,
+                 max_tokens=max_tokens_for_logging,
                  stream=stream,
                  validation_enabled=enable_validation)
 
@@ -511,6 +530,15 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "repetition_penalty": 1.0,
                 "frequency_penalty": 0.0,
             }
+        elif routed_domain in ["resume_guidance", "job_description", "job_resume_match",
+                               "recruiting_strategy", "ats_keywords"]:
+            # HR domains: Relaxed penalties to avoid terse/early stopping
+            domain_defaults = {
+                "temperature": 0.3,
+                "repetition_penalty": 1.0,
+                "frequency_penalty": 0.0,
+                "stop": ["<|im_end|>"],
+            }
         elif routed_domain in ["cooking", "general_qna", "travel", "weather"]:
             domain_defaults = {
                 "temperature": 0.3,
@@ -519,7 +547,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "stop": ["<|im_end|>"],
             }
         else:
-            # Career/interview/HR defaults
+            # Career/interview defaults
             domain_defaults = {
                 "temperature": 0.3,
                 "repetition_penalty": 1.15,
@@ -533,6 +561,9 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             effective_max_tokens = domain_max_tokens[routed_domain]
         elif effective_max_tokens is None:
             effective_max_tokens = 150  # Global default
+
+        # Clamp to valid range [64, 256]
+        effective_max_tokens = max(64, min(256, effective_max_tokens))
 
         # Build sampling parameters (user config overrides domain defaults)
         sampling_params = SamplingParams(

@@ -635,7 +635,14 @@ Be specific and relevant. No metadata. Keep 80-120 words."""
         # Format as ChatML
         prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
         prompt += f"<|im_start|>user\n{question}<|im_end|>\n"
-        prompt += "<|im_start|>assistant\n"
+
+        # Seed HR domains with "1. " to kickstart bullet/numbered lists
+        HR_DOMAINS = {"resume_guidance", "job_description", "job_resume_match",
+                      "recruiting_strategy", "ats_keywords"}
+        if domain in HR_DOMAINS:
+            prompt += "<|im_start|>assistant\n1. "
+        else:
+            prompt += "<|im_start|>assistant\n"
 
         return prompt
 
