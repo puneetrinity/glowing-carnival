@@ -413,6 +413,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
         # Phase 4: Domain-specific decoding parameters
         # Map defaults per domain (can be overridden by sampling_config)
+        # Use conservative, uniform stops; strip artifacts in sanitizer instead
         if routed_domain == "small_talk":
             domain_defaults = {
                 "temperature": 0.4,
@@ -425,15 +426,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "temperature": 0.3,
                 "repetition_penalty": 1.15,
                 "frequency_penalty": 0.2,
-                "stop": [
-                    "<|im_end|>",
-                    "[Tailored",
-                    "[End",
-                    "Context:",
-                    "Tags:",
-                    "Multi-choice problem:",
-                    "Answer according to:",
-                ],
+                "stop": ["<|im_end|>"],
             }
         else:
             # Career/interview defaults
@@ -441,14 +434,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "temperature": 0.3,
                 "repetition_penalty": 1.15,
                 "frequency_penalty": 0.2,
-                "stop": [
-                    "<|im_end|>",
-                    "[Tailored",
-                    "[Career",
-                    "[End",
-                    "Context:",
-                    "Tags:"
-                ],
+                "stop": ["<|im_end|>"],
             }
 
         # Build sampling parameters (user config overrides domain defaults)
