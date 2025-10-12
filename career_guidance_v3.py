@@ -69,6 +69,9 @@ class AutoSanitizer:
         # Remove HTML
         cleaned = re.sub(r'<[^>]+>', '', cleaned)
 
+        # Remove markdown headings like #, ##, ###
+        cleaned = re.sub(r'^\s*#{1,6}\s+.*$', '', cleaned, flags=re.MULTILINE)
+
         # Remove meta patterns
         cleaned = re.sub(r'Context:.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'Answer according to:.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
@@ -76,6 +79,12 @@ class AutoSanitizer:
         cleaned = re.sub(r'What should I know about.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r"What'?s it like to work at.*?(?:\n|$)", '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'Answered.*?years? ago', '', cleaned, flags=re.IGNORECASE)
+
+        # Remove job-posting style artifacts
+        cleaned = re.sub(r'^\s*(Job Description|Experience|Location|Salary Range)\s*:.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+
+        # Remove repeated bracket tag spam like [Resume] [DevOps Engineer] ...
+        cleaned = re.sub(r'(?:\[[^\]]+\]\s*){2,}', '', cleaned)
 
         # Remove standalone pipes (but preserve in ranges)
         cleaned = re.sub(r'^\s*\|', '', cleaned, flags=re.MULTILINE)
@@ -304,6 +313,44 @@ class ResponseValidator:
         # Repetition
         is_rep_ok, rep_issue = ResponseValidator.check_repetition(response)
         if not is_rep_ok:
+            issues.append(rep_issue)
+
+        return len(issues) == 0, issues
+
+    @staticmethod
+    def validate_market_response(response: str) -> Tuple[bool, List[str]]:
+        """Validate market intelligence response: require industries + rationale, disallow job-posting noise"""
+        issues: List[str] = []
+
+        text = response.lower()
+
+        # Require at least 2 industries/sectors
+        industries = [
+            'healthcare', 'fintech', 'e-commerce', 'retail', 'manufacturing', 'automotive',
+            'gaming', 'pharma', 'biotech', 'energy', 'clean energy', 'telecom', 'media',
+            'adtech', 'cybersecurity', 'security', 'ai', 'machine learning', 'cloud', 'saas'
+        ]
+        found = [w for w in industries if w in text]
+        if len(set(found)) < 2:
+            issues.append("Mention at least two industries/sectors")
+
+        # Require rationale indicators
+        rationale_kw = ['because', 'due to', 'driven by', 'trend', 'demand', 'hiring', 'growth']
+        if not any(k in text for k in rationale_kw):
+            issues.append("Missing rationale for why industries are hiring")
+
+        # Disallow salary/job-post artifacts
+        if ResponseValidator.has_numeric_range(response):
+            issues.append("Contains salary range/job-posting artifacts")
+        if re.search(r'^\s*(job description|experience|location)\s*:', response, flags=re.IGNORECASE | re.MULTILINE):
+            issues.append("Contains job-posting fields (Experience/Location)")
+
+        # Length and repetition checks (reuse helpers)
+        ok_len, len_issue = ResponseValidator.check_length(response)
+        if not ok_len:
+            issues.append(len_issue)
+        ok_rep, rep_issue = ResponseValidator.check_repetition(response)
+        if not ok_rep:
             issues.append(rep_issue)
 
         return len(issues) == 0, issues

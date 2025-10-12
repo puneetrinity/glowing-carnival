@@ -254,7 +254,9 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             top_p=sampling_config.get("top_p", 0.9),
             top_k=sampling_config.get("top_k", 50),
             presence_penalty=sampling_config.get("presence_penalty", 0.0),
-            frequency_penalty=sampling_config.get("frequency_penalty", 0.0),
+            frequency_penalty=sampling_config.get("frequency_penalty", 0.2),
+            repetition_penalty=sampling_config.get("repetition_penalty", 1.15),
+            stop=sampling_config.get("stop", ["<|im_end|>"]),
         )
 
         # Generate response
@@ -294,6 +296,9 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
             # Validate according to intent
             if intent == QuestionIntent.SALARY_INTEL:
                 is_valid, issues = ResponseValidator.validate_salary_response(user_question, sanitized)
+            elif intent == QuestionIntent.MARKET_INTEL:
+                # Validate market responses for industries and rationale
+                is_valid, issues = ResponseValidator.validate_market_response(sanitized)
             else:
                 is_valid, issues = ResponseValidator.validate_career_response(sanitized)
 
