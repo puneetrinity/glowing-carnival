@@ -118,7 +118,13 @@ NON_CAREER_DOMAINS = {
         "hello", "hi ", "hey ", "thanks", "thank you", "how are you", "good morning", "good evening"
     ],
     "general_qna": [
-        "how to ", "fix ", "make ", "build ", "install ", "create ", "explain "
+        # Generic patterns
+        "how to ", "fix ", "make ", "build ", "install ", "create ", "explain ", "setup ", "configure ",
+        # Tech/software specific
+        "docker", "ubuntu", "linux", "windows", "macos", "mac ",
+        "kubernetes", "k8s", "terraform", "nginx", "apache", "postgres", "mysql", "redis",
+        "homebrew", "apt ", "yum", "pip ", "npm ", "yarn", "git ", "github", "gitlab",
+        "aws ", "azure", "gcp", "cloud", "serverless", "lambda"
     ],
 }
 
@@ -287,7 +293,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         routed_domain = None
         if enable_validation:  # Only route when validation path is considered
             h_domain, h_conf = heuristic_route(user_question)
-            if h_domain and h_conf >= 0.85:
+            if h_domain and h_conf >= 0.80:
                 routed_domain = h_domain
                 prompt = build_domain_prompt(h_domain, user_question)
                 # Disable career validation for non-career domains
