@@ -103,6 +103,75 @@ def initialize_engine():
     return llm_engine
 
 
+# --- Hybrid Router (Phase 1: Heuristics) ---
+NON_CAREER_DOMAINS = {
+    "cooking": [
+        "recipe", "cook", "bake", "cake", "ingredients", "oven", "fry", "sauté", "saute", "boil"
+    ],
+    "travel": [
+        "itinerary", "flight", "visa", "hotel", "travel", "trip", "tourist", "places to visit"
+    ],
+    "weather": [
+        "weather", "forecast", "temperature", "rain", "sunny", "snow", "humidity"
+    ],
+    "small_talk": [
+        "hello", "hi ", "hey ", "thanks", "thank you", "how are you", "good morning", "good evening"
+    ],
+    "general_qna": [
+        "how to ", "fix ", "make ", "build ", "install ", "create ", "explain "
+    ],
+}
+
+
+def heuristic_route(question: str):
+    """Heuristic pre-check for obvious non-career intents.
+
+    Returns (domain: Optional[str], confidence: float)
+    """
+    q = question.lower()
+    for domain, keywords in NON_CAREER_DOMAINS.items():
+        for kw in keywords:
+            if kw in q:
+                # "general_qna" less certain than specific domains
+                conf = 0.9 if domain != "general_qna" else 0.8
+                return domain, conf
+    return None, 0.0
+
+
+def build_domain_prompt(domain: str, question: str) -> str:
+    """Build simple ChatML prompt for non-career domains"""
+    if domain == "small_talk":
+        system = (
+            "You are a friendly assistant. Respond warmly and briefly to casual conversation. "
+            "No metadata, no 'Context:' lines."
+        )
+    elif domain == "cooking":
+        system = (
+            "You are a cooking assistant. Provide ingredients and numbered, actionable steps. "
+            "No metadata, no 'Context:' lines. Keep answers under 200 words."
+        )
+    elif domain == "travel":
+        system = (
+            "You are a travel assistant. Provide concise, actionable recommendations and logistics in numbered steps. "
+            "No metadata, no 'Context:' lines. Keep answers under 200 words."
+        )
+    elif domain == "weather":
+        system = (
+            "You are a helpful assistant. If asked for current weather, explain how to check it and what to look for. "
+            "No metadata, no 'Context:' lines. Keep answers under 120 words."
+        )
+    else:  # general_qna
+        system = (
+            "You are a helpful assistant. Provide clear, numbered, actionable steps. "
+            "No metadata, no 'Context:' lines. Keep answers under 200 words."
+        )
+
+    prompt = f"<|im_start|>system\n{system}<|im_end|>\n"
+    prompt += f"<|im_start|>user\n{question}<|im_end|>\n"
+    prompt += "<|im_start|>assistant\n"
+    return prompt
+
+
 async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Generator[Dict, None, None]:
     """Generate tokens with streaming - emits only new deltas"""
     engine = initialize_engine()
@@ -214,37 +283,51 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                  stream=stream,
                  validation_enabled=enable_validation)
 
-        # V3: Classify intent and block if needed
-        intent = None
-        if USE_V3_VALIDATION and enable_validation:
-            intent = IntentClassifier.classify(user_question)
-            print(f"Intent classified: {intent.value}")
+        # Hybrid routing: Heuristic pre-check for non-career domains
+        routed_domain = None
+        if enable_validation:  # Only route when validation path is considered
+            h_domain, h_conf = heuristic_route(user_question)
+            if h_domain and h_conf >= 0.85:
+                routed_domain = h_domain
+                prompt = build_domain_prompt(h_domain, user_question)
+                # Disable career validation for non-career domains
+                enable_validation = False
+                log_json("route", request_id, router="heuristic", router_intent=h_domain, router_conf=h_conf)
+            else:
+                # V3: Classify intent and block if needed
+                intent = None
+                if USE_V3_VALIDATION and enable_validation:
+                    intent = IntentClassifier.classify(user_question)
+                    print(f"Intent classified: {intent.value}")
 
-            # Block salary/market queries (low validation rates)
-            if block_low_trust and intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
-                log_json("end", request_id,
-                         ok=False,
-                         exec_ms=int((time.time() - request_start) * 1000),
-                         intent=intent.value,
-                         blocked=True)
-                return {
-                    "blocked": True,
-                    "intent": intent.value,
-                    "message": (
-                        "This question requires real-time compensation/market data. "
-                        "We're integrating with trusted data sources (Levels.fyi, BLS.gov) "
-                        "to provide accurate, up-to-date information. "
-                        "In the meantime, try asking about career transitions, skill development, "
-                        "interview preparation, or learning paths. "
-                        "Expected availability: 2-4 weeks."
-                    )
-                }
+                    # Block salary/market queries (low validation rates)
+                    if block_low_trust and intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
+                        log_json("end", request_id,
+                                 ok=False,
+                                 exec_ms=int((time.time() - request_start) * 1000),
+                                 intent=intent.value,
+                                 blocked=True)
+                        return {
+                            "blocked": True,
+                            "intent": intent.value,
+                            "message": (
+                                "This question requires real-time compensation/market data. "
+                                "We're integrating with trusted data sources (Levels.fyi, BLS.gov) "
+                                "to provide accurate, up-to-date information. "
+                                "In the meantime, try asking about career transitions, skill development, "
+                                "interview preparation, or learning paths. "
+                                "Expected availability: 2-4 weeks."
+                            )
+                        }
 
-            # Build proper prompt with template
-            prompt = PromptBuilder.build_prompt(user_question, intent)
-            print(f"✓ Prompt formatted with {intent.value} template")
+                    # Build proper prompt with template
+                    prompt = PromptBuilder.build_prompt(user_question, intent)
+                    print(f"✓ Prompt formatted with {intent.value} template")
+                else:
+                    # No validation - use raw prompt
+                    prompt = user_question
         else:
-            # No validation - use raw prompt
+            # Validation disabled up-front
             prompt = user_question
 
         # Build sampling parameters
@@ -347,7 +430,16 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         else:
             # No validation - return raw response
             exec_ms = int((time.time() - request_start) * 1000)
-            tokens_out = usage.get("output", 0) if usage else len(result_text.split())
+            # Optional: light sanitization for non-career routed domains
+            final_text = result_text
+            try:
+                if routed_domain is not None and 'AutoSanitizer' in globals():
+                    s_text, _s_status = AutoSanitizer.sanitize(result_text)
+                    if s_text:
+                        final_text = s_text
+            except Exception:
+                pass
+            tokens_out = usage.get("output", 0) if usage else len(final_text.split())
 
             # Log request end
             log_json("end", request_id,
@@ -359,11 +451,11 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
             return {
                 "choices": [{
-                    "text": result_text,
+                    "text": final_text,
                     "deltas": deltas if stream else None,
-                    "tokens": deltas if stream else [result_text]
+                    "tokens": deltas if stream else [final_text]
                 }],
-                "usage": usage or {"input": 0, "output": len(result_text.split()), "total": len(result_text.split())},
+                "usage": usage or {"input": 0, "output": len(final_text.split()), "total": len(final_text.split())},
                 "streaming": stream
             }
 
