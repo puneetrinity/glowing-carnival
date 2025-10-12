@@ -330,42 +330,36 @@ class ResponseValidator:
 class PromptBuilder:
     """Improved prompts for weak categories"""
 
-    INTERVIEW_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
+    INTERVIEW_SYSTEM = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-Name 4-5 specific tools/frameworks (e.g., "Terraform", "Kubernetes", not generic terms). Focus on concrete preparation steps.
+Name 4-5 specific tools/frameworks (e.g., "Terraform", "Kubernetes", not generic terms). Focus on concrete preparation steps."""
 
-Question: {question}
+    CAREER_SYSTEM = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-Answer:"""
+Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes"). Include realistic timeline (weeks/months)."""
 
-    CAREER_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
+    SALARY_SYSTEM = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
 
-Name 4-5 specific skills/tools (e.g., "AWS", "Kubernetes"). Include realistic timeline (weeks/months).
-
-Question: {question}
-
-Answer:"""
-
-    SALARY_TEMPLATE = """You are a helpful career coach. Answer with numbered, actionable steps. No metadata. No "Context:" lines. Keep answers 80-150 words.
-
-Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF). Include numeric range and 2-3 factors affecting compensation.
-
-Question: {question}
-
-Answer:"""
+Provide salary guidance with correct local currency (USD/EUR/GBP/INR/SGD/SEK/CHF). Include numeric range and 2-3 factors affecting compensation."""
 
     @staticmethod
     def build_prompt(question: str, intent: QuestionIntent) -> str:
-        """Build improved prompt based on intent"""
-        templates = {
-            QuestionIntent.SALARY_INTEL: PromptBuilder.SALARY_TEMPLATE,
-            QuestionIntent.CAREER_GUIDANCE: PromptBuilder.CAREER_TEMPLATE,
-            QuestionIntent.INTERVIEW_SKILLS: PromptBuilder.INTERVIEW_TEMPLATE,
-            QuestionIntent.MARKET_INTEL: PromptBuilder.CAREER_TEMPLATE,  # Reuse career template
+        """Build ChatML-formatted prompt based on intent"""
+        system_prompts = {
+            QuestionIntent.SALARY_INTEL: PromptBuilder.SALARY_SYSTEM,
+            QuestionIntent.CAREER_GUIDANCE: PromptBuilder.CAREER_SYSTEM,
+            QuestionIntent.INTERVIEW_SKILLS: PromptBuilder.INTERVIEW_SYSTEM,
+            QuestionIntent.MARKET_INTEL: PromptBuilder.CAREER_SYSTEM,  # Reuse career template
         }
 
-        template = templates.get(intent, PromptBuilder.CAREER_TEMPLATE)
-        return template.format(question=question)
+        system_prompt = system_prompts.get(intent, PromptBuilder.CAREER_SYSTEM)
+
+        # Format as ChatML
+        prompt = f"<|im_start|>system\n{system_prompt}<|im_end|>\n"
+        prompt += f"<|im_start|>user\n{question}<|im_end|>\n"
+        prompt += "<|im_start|>assistant\n"
+
+        return prompt
 
 def process_question_v3(question: str, raw_response: str) -> Dict:
     """
