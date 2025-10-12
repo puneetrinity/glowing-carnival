@@ -119,7 +119,9 @@ NON_CAREER_DOMAINS = {
         "weather", "forecast", "temperature", "rain", "sunny", "snow", "humidity"
     ],
     "small_talk": [
-        "hello", "hi ", "hey ", "thanks", "thank you", "how are you", "good morning", "good evening"
+        "hello", "hi ", "hey ", "hiya", "yo ", "what's up", "whats up", "sup ",
+        "thanks", "thank you", "how are you", "how's your day", "hows your day",
+        "good morning", "good afternoon", "good evening", "good night"
     ],
     "general_qna": [
         # Generic patterns
@@ -142,8 +144,13 @@ def heuristic_route(question: str):
     for domain, keywords in NON_CAREER_DOMAINS.items():
         for kw in keywords:
             if kw in q:
-                # "general_qna" less certain than specific domains
-                conf = 0.9 if domain != "general_qna" else 0.8
+                # small_talk most confident, general_qna least certain
+                if domain == "small_talk":
+                    conf = 0.95
+                elif domain == "general_qna":
+                    conf = 0.8
+                else:
+                    conf = 0.9
                 return domain, conf
     return None, 0.0
 
@@ -534,6 +541,9 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     s_text, _s_status = AutoSanitizer.sanitize(result_text)
                     if s_text:
                         final_text = s_text
+                    else:
+                        # Empty after sanitization, use original to avoid blank response
+                        final_text = result_text
             except Exception:
                 pass
             tokens_out = usage.get("output", 0) if usage else len(final_text.split())
