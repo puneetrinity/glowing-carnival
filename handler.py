@@ -188,18 +188,26 @@ def heuristic_route(question: str):
     Returns (domain: Optional[str], confidence: float)
     """
     q = question.lower()
+    matches = []
+
     for domain, keywords in NON_CAREER_DOMAINS.items():
         for kw in keywords:
             if kw in q:
-                # small_talk most confident, general_qna least certain
+                # Confidence levels: small_talk > specific domains > general_qna
                 if domain == "small_talk":
                     conf = 0.95
                 elif domain == "general_qna":
                     conf = 0.8
                 else:
                     conf = 0.9
-                return domain, conf
-    return None, 0.0
+                matches.append((domain, conf))
+                break  # One match per domain is enough
+
+    if not matches:
+        return None, 0.0
+
+    # Return highest confidence match (specific domains beat general_qna)
+    return max(matches, key=lambda x: x[1])
 
 
 # --- Hybrid Router (Phase 2: LLM Router) ---
@@ -609,7 +617,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                     "valid": is_valid,
                     "issues": issues if not is_valid else [],
                     "sanitized": sanitized != result_text,
-                    "intent": intent.value
+                    "intent": intent.value if intent else "unknown"
                 },
                 "streaming": stream  # Indicate if response was streamed
             }
