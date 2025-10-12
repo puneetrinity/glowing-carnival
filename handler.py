@@ -379,7 +379,18 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         block_low_trust = job_input.get("block_low_trust_intents", True)
 
         # Guardrail: Clamp max_tokens for chat (prevents abuse, maintains quality)
-        max_tokens = sampling_config.get("max_tokens", 150)
+        # Per-domain defaults to match prompt length requirements
+        domain_max_tokens = {
+            "job_description": 230,
+            "resume_guidance": 200,
+            "job_resume_match": 200,
+            "recruiting_strategy": 180,
+            "ats_keywords": 150,
+        }
+
+        max_tokens = sampling_config.get("max_tokens")
+        if max_tokens is None:
+            max_tokens = 150  # Global default
         max_tokens = max(64, min(256, max_tokens))  # Clamp to [64, 256]
         sampling_config["max_tokens"] = max_tokens
 
@@ -392,7 +403,16 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
 
         # Hybrid routing: Heuristic pre-check for non-career domains
         routed_domain = None
-        if enable_validation:  # Only route when validation path is considered
+
+        # Market intel routing veto: Always send to V3 validation for blocking
+        MARKET_VETO_KEYWORDS = [
+            "which industries", "hiring trends", "in-demand", "job market",
+            "market trends", "demand for", "industries hiring", "tech trends",
+            "job trends", "employment trends", "market analysis"
+        ]
+        has_market_veto = any(kw in user_question.lower() for kw in MARKET_VETO_KEYWORDS)
+
+        if enable_validation and not has_market_veto:  # Only route when validation path is considered and not market intel
             h_domain, h_conf = heuristic_route(user_question)
             if h_domain and h_conf >= 0.80:
                 routed_domain = h_domain
@@ -491,7 +511,7 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "stop": ["<|im_end|>"],
             }
         else:
-            # Career/interview defaults
+            # Career/interview/HR defaults
             domain_defaults = {
                 "temperature": 0.3,
                 "repetition_penalty": 1.15,
@@ -499,9 +519,16 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "stop": ["<|im_end|>"],
             }
 
+        # Apply per-domain max_tokens if not explicitly provided by user
+        effective_max_tokens = sampling_config.get("max_tokens")
+        if effective_max_tokens is None and routed_domain in domain_max_tokens:
+            effective_max_tokens = domain_max_tokens[routed_domain]
+        elif effective_max_tokens is None:
+            effective_max_tokens = 150  # Global default
+
         # Build sampling parameters (user config overrides domain defaults)
         sampling_params = SamplingParams(
-            max_tokens=sampling_config.get("max_tokens", 150),
+            max_tokens=effective_max_tokens,
             temperature=sampling_config.get("temperature", domain_defaults.get("temperature", 0.3)),
             top_p=sampling_config.get("top_p", 0.9),
             top_k=sampling_config.get("top_k", 50),
@@ -587,20 +614,42 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "streaming": stream  # Indicate if response was streamed
             }
         else:
-            # No validation - return raw response
+            # No V3 validation - routed domains (may have HR validation)
             exec_ms = int((time.time() - request_start) * 1000)
-            # Optional: light sanitization for non-career routed domains
+
+            # Sanitize for all routed domains
             final_text = result_text
+            sanitized_flag = False
             try:
                 if routed_domain is not None and 'AutoSanitizer' in globals():
                     s_text, _s_status = AutoSanitizer.sanitize(result_text)
                     if s_text:
                         final_text = s_text
+                        sanitized_flag = (s_text != result_text)
                     else:
                         # Empty after sanitization, use original to avoid blank response
                         final_text = result_text
             except Exception:
                 pass
+
+            # HR domain validation
+            HR_VALIDATORS = {
+                "resume_guidance": ResponseValidator.validate_resume_guidance,
+                "job_description": ResponseValidator.validate_job_description,
+                "job_resume_match": ResponseValidator.validate_job_resume_match,
+                "recruiting_strategy": ResponseValidator.validate_recruiting_strategy,
+                "ats_keywords": ResponseValidator.validate_ats_keywords,
+            }
+
+            is_valid = True
+            issues = []
+            has_validation = False
+
+            if routed_domain in HR_VALIDATORS:
+                validator = HR_VALIDATORS[routed_domain]
+                is_valid, issues = validator(final_text)
+                has_validation = True
+
             tokens_out = usage.get("output", 0) if usage else len(final_text.split())
 
             # Log request end
@@ -608,10 +657,10 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                      ok=True,
                      exec_ms=exec_ms,
                      tokens_generated=tokens_out,
-                     intent="none",
-                     valid=True)
+                     intent=routed_domain if routed_domain else "none",
+                     valid=is_valid)
 
-            return {
+            response = {
                 "choices": [{
                     "text": final_text,
                     "deltas": deltas if stream else None,
@@ -620,6 +669,17 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
                 "usage": usage or {"input": 0, "output": len(final_text.split()), "total": len(final_text.split())},
                 "streaming": stream
             }
+
+            # Add validation block for HR domains
+            if has_validation:
+                response["validation"] = {
+                    "valid": is_valid,
+                    "issues": issues if not is_valid else [],
+                    "sanitized": sanitized_flag,
+                    "intent": routed_domain
+                }
+
+            return response
 
     except Exception as e:
         exec_ms = int((time.time() - request_start) * 1000)

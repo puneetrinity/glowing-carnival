@@ -416,6 +416,11 @@ class ResponseValidator:
         if not has_action_verbs:
             issues.append("Missing action verbs (Led, Built, Optimized, etc.)")
 
+        # Check for ATS keywords (comma-heavy line or explicit mention)
+        has_ats = bool(re.search(r'ATS|keyword', response, re.IGNORECASE)) or (response.count(',') >= 8)
+        if not has_ats:
+            issues.append("Missing ATS keywords line or comma-separated keywords")
+
         return len(issues) == 0, issues
 
     @staticmethod
@@ -434,10 +439,16 @@ class ResponseValidator:
             issues.append("Response too long (> 300 words)")
 
         # Check for key sections
-        required_sections = ['responsibilities', 'requirements', 'experience']
-        found_sections = sum(1 for section in required_sections if section in response.lower())
-        if found_sections < 2:
-            issues.append(f"Missing key JD sections (found {found_sections}/3: responsibilities, requirements, experience)")
+        required_sections = ['responsibilities', 'requirements']
+        found_required = sum(1 for section in required_sections if section in response.lower())
+        if found_required < 2:
+            issues.append(f"Missing required JD sections (responsibilities, requirements)")
+
+        # Check for nice-to-have or benefits (at least one)
+        optional_sections = ['nice-to-have', 'nice to have', 'benefits', 'perks']
+        has_optional = any(section in response.lower() for section in optional_sections)
+        if not has_optional:
+            issues.append("Missing nice-to-have or benefits section")
 
         # Check for reasonable bullet count
         bullet_count = len(re.findall(r'^\s*[\d\-\*\•]', response, re.MULTILINE))
@@ -517,10 +528,10 @@ class ResponseValidator:
         elif keyword_count > 50:
             issues.append(f"Too many keywords ({keyword_count}, expected 20-40)")
 
-        # Word count check (should be concise)
+        # Word count check (should be concise but meet prompt requirement of 80-120 words)
         word_count = len(response.split())
-        if word_count < 30:
-            issues.append("Response too short (< 30 words)")
+        if word_count < 60:
+            issues.append("Response too short (< 60 words, expected 80-120)")
 
         return len(issues) == 0, issues
 
