@@ -82,6 +82,9 @@ class AutoSanitizer:
         # Remove HTML
         cleaned = re.sub(r'<[^>]+>', '', cleaned)
 
+        # Remove markdown headings like #, ##, ###
+        cleaned = re.sub(r'^\s*#{1,6}\s+.*$', '', cleaned, flags=re.MULTILINE)
+
         # Remove meta patterns
         cleaned = re.sub(r'Context:.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
         cleaned = re.sub(r'Answer according to:.*?(?:\n|$)', '', cleaned, flags=re.IGNORECASE)
@@ -97,11 +100,20 @@ class AutoSanitizer:
         # Remove chat tokens
         cleaned = re.sub(r'<\|[^>]+\|>', '', cleaned)
 
+        # Remove job-posting style artifacts
+        cleaned = re.sub(r'^\s*(Job Description|Experience|Location|Salary Range)\s*:.*$', '', cleaned, flags=re.IGNORECASE | re.MULTILINE)
+
+        # Remove bracketed metadata/tags like [INR], [SalaryRange], [City], [End]
+        cleaned = re.sub(r'\s*\[[A-Za-z][^\]]{1,64}\]\s*', ' ', cleaned)
+
         # Remove trailing artifacts: [END], [Truncated], [Read more], etc.
         cleaned = re.sub(r'\s*\[(END|Truncated|Read more|Continue reading)\].*$', '', cleaned, flags=re.IGNORECASE | re.DOTALL)
 
-        # Remove trailing ellipsis spam (3+ consecutive dots or periods)
-        cleaned = re.sub(r'(\.\s*){3,}$', '', cleaned)
+        # Remove trailing ellipsis/pipes spam (3+ of ., |, space)
+        cleaned = re.sub(r'[\|\.\u00A0\s]{3,}$', '', cleaned)
+
+        # Remove marketing/CTA tails
+        cleaned = re.sub(r'(?:For more|visit our website|#\w+).*$', '', cleaned, flags=re.IGNORECASE | re.DOTALL)
 
         # Clean whitespace
         cleaned = re.sub(r'\n\s*\n\s*\n+', '\n\n', cleaned)

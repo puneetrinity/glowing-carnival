@@ -250,13 +250,23 @@ async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
         # Build sampling parameters
         sampling_params = SamplingParams(
             max_tokens=sampling_config.get("max_tokens", 150),
-            temperature=sampling_config.get("temperature", 0.7),
+            temperature=sampling_config.get("temperature", 0.3),
             top_p=sampling_config.get("top_p", 0.9),
             top_k=sampling_config.get("top_k", 50),
             presence_penalty=sampling_config.get("presence_penalty", 0.0),
             frequency_penalty=sampling_config.get("frequency_penalty", 0.2),
             repetition_penalty=sampling_config.get("repetition_penalty", 1.15),
-            stop=sampling_config.get("stop", ["<|im_end|>"]),
+            stop=sampling_config.get(
+                "stop",
+                [
+                    "<|im_end|>",
+                    "[Tailored",
+                    "[Career",
+                    "[End",
+                    "Context:",
+                    "Tags:"
+                ]
+            ),
         )
 
         # Generate response
