@@ -1,18 +1,20 @@
 """
-RunPod Serverless Handler for vLLM with Streaming Support
-Optimized for Qwen 2.5 7B Career Model - V3 with Quality Validation
+RunPod Serverless Handler for vLLM with Enhanced Features
+Combines:
+- Career Model V3 optimizations (87% validation rate)
+- Domain-aware task routing (ATS, Resume, Job Description, etc.)
+- Structured output validation with auto-retry
+- OpenAI-compatible messages format
+- Profanity filtering and safety checks
+- Streaming support with async vLLM engine
 
-V3 Improvements:
-- 87% validation for career guidance (13/15)
-- Intent classification with false positive fixes
-- Auto-sanitization with over-cleaning prevention
-- Enhanced salary range detection (SGD, SEK, etc)
+Version: 2.0.0
 """
 
 import os
 import runpod
 from vllm import SamplingParams
-from typing import Generator, Dict, Any
+from typing import Generator, Dict, Any, List, Optional, Tuple, Union
 import asyncio
 from vllm.engine.arg_utils import AsyncEngineArgs
 from vllm.engine.async_llm_engine import AsyncLLMEngine
@@ -22,6 +24,10 @@ import uuid
 import time
 import atexit
 import signal
+import re
+import logging
+from dataclasses import dataclass
+from enum import Enum
 from datetime import datetime, timezone
 
 # Import V3 validation logic (use symlinked path in container)
@@ -40,23 +46,62 @@ except ImportError as e:
     print(f"⚠ V3 validation not available: {e}")
     USE_V3_VALIDATION = False
 
+# Logging setup
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 # Global vLLM engine instance
 llm_engine = None
 
-# Graceful shutdown handler to reduce NCCL warnings
-# Note: Set NCCL_ASYNC_ERROR_HANDLING=1 in environment for better NCCL cleanup
-def _shutdown_handler(signum=None, frame=None):
-    """Gracefully shutdown vLLM engine to prevent NCCL teardown warnings
+# Task types for domain-aware routing
+class TaskType(str, Enum):
+    # HR/Recruiting specific tasks
+    ATS_KEYWORDS = "ats_keywords"
+    RESUME_BULLETS = "resume_bullets"
+    JOB_DESCRIPTION = "job_description"
+    JOB_RESUME_MATCH = "job_resume_match"
+    RECRUITING_STRATEGY = "recruiting_strategy"
+    # Career guidance (from V3)
+    CAREER_GUIDANCE = "career_guidance"
+    # General chat types
+    GENERIC_CHAT = "generic_chat"
+    SMALL_TALK = "small_talk"
+    LIFE_ADVICE = "life_advice"
+    OTHER = "other"
 
-    Reduces "ProcessGroupNCCL has NOT been destroyed" warnings on worker teardown.
-    Works with SIGTERM (container stop), SIGINT (Ctrl+C), and atexit (normal exit).
-    """
+# Task-specific configuration
+@dataclass
+class TaskConfig:
+    system_prompt: str
+    expected_format: str  # "json" or "text"
+    temperature: float
+    max_tokens: int
+    top_p: float
+    requires_disclaimer: bool = False
+    validator_fn: Optional[callable] = None
+    use_v3_validation: bool = False
+
+# Profanity/safety filter patterns
+PROFANITY_PATTERNS = [
+    r'\b(fuck|shit|damn|bitch|ass|crap|piss|bastard|hell)\b',
+    r'\b(nigga|nigger|faggot|retard|cunt)\b',  # slurs
+]
+
+DISCLAIMER_PATTERN = r'(not a licensed professional|not a therapist|not medical advice|seek professional help|consult a professional)'
+
+# Configuration settings
+MAX_RETRIES = int(os.getenv("MAX_RETRIES", "1"))
+
+# Graceful shutdown handler
+def _shutdown_handler(signum=None, frame=None):
+    """Gracefully shutdown vLLM engine to prevent NCCL teardown warnings"""
     global llm_engine
     if llm_engine is not None:
         try:
             print("🔄 Gracefully shutting down vLLM engine...")
-            # vLLM AsyncEngine doesn't have a public shutdown method in 0.6.4.post1
-            # Best effort: let Python's GC handle cleanup properly
             llm_engine = None
             print("✓ Engine shutdown initiated")
         except Exception as e:
@@ -67,14 +112,245 @@ atexit.register(_shutdown_handler)
 signal.signal(signal.SIGTERM, _shutdown_handler)
 signal.signal(signal.SIGINT, _shutdown_handler)
 
+# Validation functions for structured outputs
+def validate_ats_keywords(data: Any) -> Tuple[bool, Optional[str]]:
+    """Validate ATS keywords response"""
+    if not isinstance(data, list):
+        return False, "Expected array of strings"
+    if len(data) != 25:
+        return False, f"Expected exactly 25 keywords, got {len(data)}"
+    if not all(isinstance(kw, str) and kw.islower() for kw in data):
+        return False, "All keywords must be lowercase strings"
+    return True, None
+
+def validate_resume_bullets(data: Any) -> Tuple[bool, Optional[str]]:
+    """Validate resume bullets response"""
+    if not isinstance(data, list):
+        return False, "Expected array of strings"
+    if len(data) != 5:
+        return False, f"Expected exactly 5 bullets, got {len(data)}"
+    for bullet in data:
+        if not isinstance(bullet, str):
+            return False, "All bullets must be strings"
+        words = bullet.split()
+        if not (12 <= len(words) <= 20):
+            return False, f"Each bullet must be 12-20 words, got {len(words)}"
+    return True, None
+
+def validate_job_description(data: Any) -> Tuple[bool, Optional[str]]:
+    """Validate job description response"""
+    if not isinstance(data, dict):
+        return False, "Expected JSON object"
+    required_keys = {"summary", "responsibilities", "requirements"}
+    if not required_keys.issubset(data.keys()):
+        return False, f"Missing required keys: {required_keys - set(data.keys())}"
+    if not isinstance(data["responsibilities"], list) or len(data["responsibilities"]) < 3:
+        return False, "responsibilities must be array with at least 3 items"
+    if not isinstance(data["requirements"], list) or len(data["requirements"]) < 3:
+        return False, "requirements must be array with at least 3 items"
+    return True, None
+
+def validate_job_resume_match(data: Any) -> Tuple[bool, Optional[str]]:
+    """Validate job/resume match response"""
+    if not isinstance(data, dict):
+        return False, "Expected JSON object"
+    required_keys = {"score", "matches", "gaps", "next_steps"}
+    if not required_keys.issubset(data.keys()):
+        return False, f"Missing required keys: {required_keys - set(data.keys())}"
+    if not isinstance(data["score"], (int, float)) or not (0 <= data["score"] <= 100):
+        return False, "score must be number between 0-100"
+    for key in ["matches", "gaps", "next_steps"]:
+        if not isinstance(data[key], list):
+            return False, f"{key} must be an array"
+    return True, None
+
+def validate_recruiting_strategy(data: Any) -> Tuple[bool, Optional[str]]:
+    """Validate recruiting strategy response"""
+    if not isinstance(data, dict):
+        return False, "Expected JSON object"
+    required_keys = {"channels", "cadence", "metrics"}
+    if not required_keys.issubset(data.keys()):
+        return False, f"Missing required keys: {required_keys - set(data.keys())}"
+    if not isinstance(data["channels"], list) or len(data["channels"]) < 4:
+        return False, "channels must be array with at least 4 items"
+    if not isinstance(data["metrics"], list) or len(data["metrics"]) < 3:
+        return False, "metrics must be array with at least 3 items"
+    if not isinstance(data["cadence"], str):
+        return False, "cadence must be a string"
+    return True, None
+
+# Task configurations
+TASK_CONFIGS: Dict[TaskType, TaskConfig] = {
+    TaskType.ATS_KEYWORDS: TaskConfig(
+        system_prompt="You are an ATS keyword extraction expert. Return a JSON array of exactly 25 lowercase keywords (strings only). No code fences, no markdown, no extra text. Just the raw JSON array.",
+        expected_format="json",
+        temperature=0.2,
+        max_tokens=200,
+        top_p=0.9,
+        validator_fn=validate_ats_keywords
+    ),
+    TaskType.RESUME_BULLETS: TaskConfig(
+        system_prompt="You are a professional resume writer. Return a JSON array of exactly 5 strings. Each string must be 12-20 words and start with a strong action verb. No code fences, no markdown. Just the raw JSON array.",
+        expected_format="json",
+        temperature=0.25,
+        max_tokens=300,
+        top_p=0.9,
+        validator_fn=validate_resume_bullets
+    ),
+    TaskType.JOB_DESCRIPTION: TaskConfig(
+        system_prompt="You are a job description expert. Return a JSON object with exactly these keys: summary (string), responsibilities (array of at least 3 strings), requirements (array of at least 3 strings). No extra keys, no code fences, no markdown. Just the raw JSON object.",
+        expected_format="json",
+        temperature=0.3,
+        max_tokens=500,
+        top_p=0.9,
+        validator_fn=validate_job_description
+    ),
+    TaskType.JOB_RESUME_MATCH: TaskConfig(
+        system_prompt="You are a hiring expert analyzing job-resume fit. Return a JSON object with exactly these keys: score (number 0-100), matches (array of strings), gaps (array of strings), next_steps (array of strings). No code fences, no markdown. Just the raw JSON object.",
+        expected_format="json",
+        temperature=0.25,
+        max_tokens=400,
+        top_p=0.9,
+        validator_fn=validate_job_resume_match
+    ),
+    TaskType.RECRUITING_STRATEGY: TaskConfig(
+        system_prompt="You are a recruiting strategist. Return a JSON object with exactly these keys: channels (array of at least 4 strings), cadence (string mentioning week/month/quarter/daily), metrics (array of at least 3 strings). No code fences, no markdown. Just the raw JSON object.",
+        expected_format="json",
+        temperature=0.3,
+        max_tokens=400,
+        top_p=0.9,
+        validator_fn=validate_recruiting_strategy
+    ),
+    TaskType.CAREER_GUIDANCE: TaskConfig(
+        system_prompt="You are a career guidance expert providing professional advice to help individuals advance their careers. Focus on practical, actionable guidance.",
+        expected_format="text",
+        temperature=0.5,
+        max_tokens=700,
+        top_p=0.9,
+        use_v3_validation=True
+    ),
+    TaskType.LIFE_ADVICE: TaskConfig(
+        system_prompt="You are an empathetic assistant providing life advice. Use a warm, supportive tone. IMPORTANT: You must include this disclaimer in your response: 'I am not a licensed professional. For serious concerns, please consult a qualified therapist or counselor.' Be helpful but safe.",
+        expected_format="text",
+        temperature=0.7,
+        max_tokens=300,
+        top_p=0.9,
+        requires_disclaimer=True
+    ),
+    TaskType.SMALL_TALK: TaskConfig(
+        system_prompt="You are a friendly, family-friendly assistant. Respond in 1-2 brief sentences. No profanity, no slurs, no inappropriate content. Be warm and helpful.",
+        expected_format="text",
+        temperature=0.7,
+        max_tokens=80,
+        top_p=0.9
+    ),
+    TaskType.GENERIC_CHAT: TaskConfig(
+        system_prompt="You are a helpful, family-friendly assistant. Provide clear, accurate information. No profanity, no slurs, no inappropriate content. Be professional and helpful.",
+        expected_format="text",
+        temperature=0.6,
+        max_tokens=500,
+        top_p=0.9
+    ),
+    TaskType.OTHER: TaskConfig(
+        system_prompt="You are a helpful, professional assistant. Provide accurate, family-friendly responses. No profanity or inappropriate content.",
+        expected_format="text",
+        temperature=0.6,
+        max_tokens=500,
+        top_p=0.9
+    )
+}
+
+# Helper functions
+def check_profanity(text: str) -> bool:
+    """Check if text contains profanity or slurs"""
+    text_lower = text.lower()
+    for pattern in PROFANITY_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            return True
+    return False
+
+def check_disclaimer(text: str) -> bool:
+    """Check if text contains required disclaimer"""
+    return bool(re.search(DISCLAIMER_PATTERN, text, re.IGNORECASE))
+
+def strip_code_fences(text: str) -> str:
+    """Remove markdown code fences from text"""
+    # Pattern 1: Full fenced block
+    fenced_pattern = r'^```(?:json|JSON)?\s*\n(.*?)\n```\s*$'
+    match = re.search(fenced_pattern, text, flags=re.DOTALL | re.MULTILINE)
+    if match:
+        text = match.group(1)
+    else:
+        # Pattern 2: Leading fence
+        text = re.sub(r'^```(?:json|JSON)?\s*\n', '', text, flags=re.MULTILINE)
+        # Pattern 3: Trailing fence
+        text = re.sub(r'\n```\s*$', '', text, flags=re.MULTILINE)
+        # Pattern 4: Inline fences
+        text = re.sub(r'```(?:json|JSON)?\s*', '', text)
+    
+    return text.strip()
+
+def parse_and_validate_json(text: str, task_config: TaskConfig) -> Tuple[bool, Any, Optional[str]]:
+    """Parse JSON and validate against task schema"""
+    clean_text = strip_code_fences(text)
+    
+    try:
+        data = json.loads(clean_text)
+    except json.JSONDecodeError as e:
+        return False, None, f"JSON parse error: {str(e)}"
+    
+    # Validate against task-specific validator
+    if task_config.validator_fn:
+        is_valid, error_msg = task_config.validator_fn(data)
+        if not is_valid:
+            return False, data, error_msg
+    
+    return True, data, None
+
+def build_corrective_prompt(original_prompt: str, error_msg: str, task_config: TaskConfig) -> str:
+    """Build a corrective system prompt for retry"""
+    correction = f"{task_config.system_prompt}\n\nIMPORTANT: Previous attempt failed with error: {error_msg}\n"
+    
+    if "exactly" in task_config.system_prompt.lower():
+        correction += "Ensure you return EXACTLY the requested number of items. "
+    
+    correction += "Return ONLY raw JSON with no code fences, no markdown, no extra text before or after."
+    
+    return correction
+
+def detect_task_from_content(content: str) -> TaskType:
+    """Auto-detect task type from user message content"""
+    content_lower = content.lower()
+    
+    # HR/Recruiting task detection
+    if any(kw in content_lower for kw in ["ats", "keyword", "applicant tracking"]):
+        return TaskType.ATS_KEYWORDS
+    elif any(kw in content_lower for kw in ["resume bullet", "achievement", "accomplishment"]):
+        return TaskType.RESUME_BULLETS
+    elif any(kw in content_lower for kw in ["job description", "job posting", "jd"]):
+        return TaskType.JOB_DESCRIPTION
+    elif any(kw in content_lower for kw in ["job fit", "resume match", "candidate fit"]):
+        return TaskType.JOB_RESUME_MATCH
+    elif any(kw in content_lower for kw in ["recruiting", "sourcing", "hiring strategy"]):
+        return TaskType.RECRUITING_STRATEGY
+    
+    # Career guidance detection (V3 intents)
+    elif any(kw in content_lower for kw in ["career", "salary", "skill", "interview", "promotion"]):
+        return TaskType.CAREER_GUIDANCE
+    
+    # Life advice detection
+    elif any(kw in content_lower for kw in ["life advice", "personal", "relationship", "mental health"]):
+        return TaskType.LIFE_ADVICE
+    
+    # Small talk detection
+    elif any(kw in content_lower for kw in ["joke", "weather", "hello", "hi there"]):
+        return TaskType.SMALL_TALK
+    
+    return TaskType.GENERIC_CHAT
+
 # Structured logging functions
 def log_json(event: str, request_id: str, **kwargs):
-    """Emit structured JSON log
-
-    Note: Handler can only log exec_ms (processing time).
-    Queue delay (delay_ms) happens before handler starts -
-    only available from RunPod response metadata client-side.
-    """
+    """Emit structured JSON log"""
     record = {
         "ts": datetime.now(timezone.utc).isoformat(),
         "level": kwargs.pop("level", "info"),
@@ -87,656 +363,332 @@ def log_json(event: str, request_id: str, **kwargs):
 def initialize_engine():
     """Initialize vLLM engine with optimized settings"""
     global llm_engine
-
+    
     if llm_engine is not None:
         return llm_engine
-
-    model_path = os.getenv("MODEL_PATH", "/models/qwen2-7b-career")
-
+    
+    model_path = os.getenv("MODEL_PATH", "/models/Puneetrinity/qwen2.5-7b-careerv2")
+    
     # vLLM AsyncEngine configuration
     max_model_len = int(os.getenv("MAX_MODEL_LEN", "4096"))
     env_mnbt = os.getenv("MAX_NUM_BATCHED_TOKENS")
     mnbt = None
     if env_mnbt is not None and env_mnbt != "":
-        try:
-            mnbt_val = int(env_mnbt)
-            if mnbt_val < max_model_len:
-                print(
-                    f"⚠ MAX_NUM_BATCHED_TOKENS ({mnbt_val}) < MAX_MODEL_LEN ({max_model_len}); "
-                    f"overriding to {max_model_len} to satisfy vLLM constraint."
-                )
-                mnbt = max_model_len
-            else:
-                mnbt = mnbt_val
-        except ValueError:
-            print(f"⚠ Invalid MAX_NUM_BATCHED_TOKENS='{env_mnbt}', ignoring.")
-
-    engine_kwargs = dict(
+        mnbt = int(env_mnbt)
+    else:
+        mnbt = min(max_model_len, 2048)
+    
+    engine_args = AsyncEngineArgs(
         model=model_path,
-        max_model_len=max_model_len,
-        gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
-        max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
-        dtype="auto",
+        tokenizer=model_path,
         trust_remote_code=True,
+        max_model_len=max_model_len,
+        max_num_batched_tokens=mnbt,
+        max_num_seqs=int(os.getenv("MAX_NUM_SEQS", "8")),
+        gpu_memory_utilization=float(os.getenv("GPU_MEMORY_UTILIZATION", "0.90")),
+        dtype="auto",
+        disable_log_requests=True,
+        enable_chunked_prefill=True,
+        max_num_on_the_fly=16,
     )
-    if mnbt is not None:
-        engine_kwargs["max_num_batched_tokens"] = mnbt
-
-    engine_args = AsyncEngineArgs(**engine_kwargs)
-
+    
+    print(f"🚀 Initializing vLLM AsyncEngine...")
+    print(f"   Model: {model_path}")
+    print(f"   Max model length: {max_model_len}")
+    print(f"   Max batched tokens: {mnbt}")
+    
     llm_engine = AsyncLLMEngine.from_engine_args(engine_args)
-    print(f"✓ vLLM engine initialized with model: {model_path}")
+    print("✓ vLLM engine initialized")
+    
     return llm_engine
 
+async def generate_with_engine(prompt: str, sampling_params: SamplingParams, request_id: str) -> str:
+    """Generate text using vLLM engine"""
+    engine = initialize_engine()
+    
+    # Generate response
+    request_output = None
+    async for output in engine.generate(prompt, sampling_params, request_id):
+        request_output = output
+    
+    if request_output is None:
+        raise RuntimeError("No output generated")
+    
+    return request_output.outputs[0].text
 
-# --- Hybrid Router Configuration ---
-USE_LLM_ROUTER = os.getenv("USE_LLM_ROUTER", "false").lower() == "true"
+async def stream_with_engine(prompt: str, sampling_params: SamplingParams, request_id: str) -> AsyncGenerator:
+    """Stream text using vLLM engine"""
+    engine = initialize_engine()
+    
+    async for output in engine.generate(prompt, sampling_params, request_id):
+        if output.outputs:
+            text = output.outputs[0].text
+            yield text
 
+def convert_messages_to_prompt(messages: List[Dict[str, str]]) -> str:
+    """Convert OpenAI messages format to prompt string"""
+    prompt_parts = []
+    
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        
+        if role == "system":
+            prompt_parts.append(f"System: {content}")
+        elif role == "user":
+            prompt_parts.append(f"Human: {content}")
+        elif role == "assistant":
+            prompt_parts.append(f"Assistant: {content}")
+    
+    # Add final assistant prompt
+    prompt_parts.append("Assistant:")
+    
+    return "\n\n".join(prompt_parts)
 
-# --- Hybrid Router (Phase 1: Heuristics) ---
-NON_CAREER_DOMAINS = {
-    "cooking": [
-        "recipe", "cook", "bake", "cake", "ingredients", "oven", "fry", "sauté", "saute", "boil"
-    ],
-    "travel": [
-        "itinerary", "flight", "visa", "hotel", "travel", "trip", "tourist", "places to visit"
-    ],
-    "weather": [
-        "weather", "forecast", "temperature", "rain", "sunny", "snow", "humidity"
-    ],
-    "small_talk": [
-        "hello", "hi ", "hey ", "hiya", "yo ", "what's up", "whats up", "sup ",
-        "thanks", "thank you", "how are you", "how's your day", "hows your day",
-        "good morning", "good afternoon", "good evening", "good night"
-    ],
-    "general_qna": [
-        # Generic patterns
-        "how to ", "fix ", "make ", "build ", "install ", "create ", "explain ", "setup ", "configure ",
-        # Tech/software specific
-        "docker", "ubuntu", "linux", "windows", "macos", "mac ",
-        "kubernetes", "k8s", "terraform", "nginx", "apache", "postgres", "mysql", "redis",
-        "homebrew", "apt ", "yum", "pip ", "npm ", "yarn", "git ", "github", "gitlab",
-        "aws ", "azure", "gcp", "cloud", "serverless", "lambda"
-    ],
-    # HR/Recruiting domains
-    "resume_guidance": [
-        "resume", "cv ", "curriculum vitae", "write resume", "create resume", "resume tips",
-        "resume guidance", "resume help", "improve resume", "resume keywords", "resume bullet"
-    ],
-    "job_description": [
-        "job description", "jd ", "job posting", "job ad", "write job description",
-        "create job description", "draft jd", "job requirements"
-    ],
-    "job_resume_match": [
-        "match resume", "match candidate", "resume match", "fit for role", "candidate fit",
-        "evaluate resume", "assess candidate", "resume score"
-    ],
-    "recruiting_strategy": [
-        "recruiting", "recruitment", "hiring strategy", "sourcing", "talent acquisition",
-        "find candidates", "recruit ", "hiring plan", "candidate sourcing"
-    ],
-    "ats_keywords": [
-        "ats keywords", "ats ", "applicant tracking", "resume keywords", "keyword optimization",
-        "resume scanner", "ats system"
-    ],
-}
-
-
-def heuristic_route(question: str):
-    """Heuristic pre-check for obvious non-career intents.
-
-    Returns (domain: Optional[str], confidence: float)
-
-    Tie-break priority (when confidence equal):
-    small_talk > ats_keywords > job_description > resume_guidance >
-    job_resume_match > recruiting_strategy > cooking/travel/weather > general_qna
+def handler(job):
     """
-    q = question.lower()
-    matches = []
-
-    # Domain priority for tie-breaking (higher = more specific)
-    DOMAIN_PRIORITY = {
-        "small_talk": 10,
-        "ats_keywords": 9,
-        "job_description": 8,
-        "resume_guidance": 7,
-        "job_resume_match": 6,
-        "recruiting_strategy": 5,
-        "cooking": 4,
-        "travel": 4,
-        "weather": 4,
-        "general_qna": 1,
-    }
-
-    for domain, keywords in NON_CAREER_DOMAINS.items():
-        for kw in keywords:
-            if kw in q:
-                # Confidence levels: small_talk > specific domains > general_qna
-                if domain == "small_talk":
-                    conf = 0.95
-                elif domain == "general_qna":
-                    conf = 0.8
-                else:
-                    conf = 0.9
-
-                priority = DOMAIN_PRIORITY.get(domain, 0)
-                matches.append((domain, conf, priority))
-                break  # One match per domain is enough
-
-    if not matches:
-        return None, 0.0
-
-    # Sort by confidence DESC, then priority DESC (tie-breaker)
-    best_match = max(matches, key=lambda x: (x[1], x[2]))
-    return best_match[0], best_match[1]
-
-
-# --- Hybrid Router (Phase 2: LLM Router) ---
-async def classify_with_llm(question: str) -> dict:
-    """Use LLM to classify question intent when heuristics are uncertain.
-
-    Returns: {"intent": str, "confidence": float}
-
-    Routing thresholds:
-    - conf >= 0.6: Trust classification
-    - 0.4 <= conf < 0.6: Use heuristic hint if present, else general_qna
-    - conf < 0.4: Fallback to general_qna
-    """
-    engine = initialize_engine()
-
-    # Build strict JSON classification prompt
-    classification_prompt = f"""<|im_start|>system
-You are an intent classifier. Classify the user's question into ONE of these intents:
-- career_guidance: Career paths, transitions, skill development
-- interview_skills: Interview prep, resume, networking
-- salary_intelligence: Salary, compensation, pay ranges
-- market_intel: Job market trends, demand, hiring
-- resume_guidance: Resume writing, CV tips, resume improvement
-- job_description: Job posting creation, JD writing
-- job_resume_match: Candidate-job matching, resume evaluation
-- recruiting_strategy: Sourcing, hiring channels, recruitment planning
-- ats_keywords: ATS optimization, resume keywords
-- cooking: Recipes, food preparation
-- travel: Travel planning, destinations, logistics
-- weather: Weather forecasts, conditions
-- small_talk: Greetings, thanks, casual chat
-- general_qna: How-to, technical questions, explanations
-
-Respond ONLY with valid JSON: {{"intent": "intent_name", "confidence": 0.0-1.0}}
-<|im_end|>
-<|im_start|>user
-{question}<|im_end|>
-<|im_start|>assistant
-{{"""
-
-    sampling_params = SamplingParams(
-        max_tokens=60,
-        temperature=0.0,
-        stop=["<|im_end|>"],
-    )
-
-    request_id = f"router-{os.urandom(4).hex()}"
-
-    try:
-        # Generate classification
-        result_generator = engine.generate(classification_prompt, sampling_params, request_id)
-
-        final_output = None
-        async for request_output in result_generator:
-            if request_output.finished:
-                final_output = request_output.outputs[0].text
-
-        if not final_output:
-            raise ValueError("LLM router returned no output")
-
-        # Parse JSON response (add closing brace if missing)
-        json_text = final_output.strip()
-        if not json_text.startswith("{"):
-            json_text = "{" + json_text
-        if not json_text.endswith("}"):
-            json_text = json_text + "}"
-
-        result = json.loads(json_text)
-        intent = result.get("intent", "general_qna")
-        confidence = float(result.get("confidence", 0.5))
-
-        return {"intent": intent, "confidence": confidence}
-
-    except (json.JSONDecodeError, ValueError, KeyError) as e:
-        # Parse-safe fallback
-        print(f"⚠ LLM router parse error: {e}, falling back to general_qna")
-        return {"intent": "general_qna", "confidence": 0.3}
-
-
-async def generate_streaming(prompt: str, sampling_params: SamplingParams) -> Generator[Dict, None, None]:
-    """Generate tokens with streaming - emits only new deltas"""
-    engine = initialize_engine()
-    request_id = f"req-{os.urandom(8).hex()}"
-
-    # Start generation
-    results_generator = engine.generate(prompt, sampling_params, request_id)
-
-    prev_len = 0
-    deltas = []
-    async for request_output in results_generator:
-        if request_output.finished:
-            # Final output
-            full_text = request_output.outputs[0].text
-            final_delta = full_text[prev_len:]  # Any remaining text
-            if final_delta:
-                deltas.append(final_delta)
-
-            # Normalize usage keys (consistent with non-streaming)
-            usage_input = len(request_output.prompt_token_ids)
-            usage_output = len(request_output.outputs[0].token_ids)
-            yield {
-                "delta": final_delta,
-                "text": full_text,  # Full text for convenience
-                "deltas": deltas,  # All deltas for debugging
-                "finished": True,
-                "usage": {
-                    "input": usage_input,
-                    "output": usage_output,
-                    "total": usage_input + usage_output,
-                }
-            }
-        else:
-            # Streaming delta - only new text
-            full_text = request_output.outputs[0].text
-            delta = full_text[prev_len:]
-            prev_len = len(full_text)
-            deltas.append(delta)
-
-            yield {
-                "delta": delta,
-                "finished": False,
-                "offset": prev_len - len(delta)  # Starting position of this delta
-            }
-
-
-async def generate_non_streaming(prompt: str, sampling_params: SamplingParams) -> Dict:
-    """Generate without streaming (batch mode)"""
-    engine = initialize_engine()
-    request_id = f"req-{os.urandom(8).hex()}"
-
-    # Generate and wait for completion
-    final_output = None
-    async for request_output in engine.generate(prompt, sampling_params, request_id):
-        if request_output.finished:
-            final_output = request_output
-
-    if final_output is None:
-        raise RuntimeError("Generation failed to complete")
-
-    text = final_output.outputs[0].text
-    usage_input = len(final_output.prompt_token_ids)
-    usage_output = len(final_output.outputs[0].token_ids)
-    return {
-        "choices": [{
-            "text": text,
-            "tokens": [text]
-        }],
-        "usage": {
-            "input": usage_input,
-            "output": usage_output,
-            "total": usage_input + usage_output,
+    Enhanced RunPod handler with task routing, structured outputs, and V3 validation
+    
+    Supports multiple input formats:
+    
+    1. Legacy format (backward compatible):
+    {
+        "input": {
+            "prompt": "Your prompt here",
+            "sampling_params": {...}
         }
     }
-
-
-async def handler(job: Dict[str, Any]) -> Dict[str, Any]:
-    """Main async handler for RunPod with V3 validation"""
-    # Generate request ID for tracking
-    request_id = str(uuid.uuid4())[:8]
-    request_start = time.time()
-
-    try:
-        job_input = job.get("input", {})
-
-        # Extract parameters
-        user_question = job_input.get("prompt", "")
-        if not user_question:
-            return {"error": "No prompt provided"}
-
-        # Guardrail: Prompt length limit (prevents KV cache bloat)
-        if len(user_question) > 1024:
-            return {"error": "Prompt too long (max 1024 chars)"}
-
-        sampling_config = job_input.get("sampling_params", {})
-        stream = sampling_config.get("stream", False)
-        enable_validation = job_input.get("enable_validation", USE_V3_VALIDATION)
-        block_low_trust = job_input.get("block_low_trust_intents", True)
-
-        # Guardrail: Clamp max_tokens for chat (prevents abuse, maintains quality)
-        # Per-domain defaults to match prompt length requirements
-        domain_max_tokens = {
-            "job_description": 230,
-            "resume_guidance": 200,
-            "job_resume_match": 200,
-            "recruiting_strategy": 180,
-            "ats_keywords": 150,
+    
+    2. OpenAI messages format:
+    {
+        "input": {
+            "messages": [{"role": "user", "content": "..."}],
+            "sampling_params": {...}
         }
-
-        # Get user's max_tokens for logging (don't force default here - domain logic handles it)
-        max_tokens_for_logging = sampling_config.get("max_tokens", 150)
-        max_tokens_for_logging = max(64, min(256, max_tokens_for_logging))
-
-        # Log request start
-        log_json("start", request_id,
-                 prompt_len=len(user_question),
-                 max_tokens=max_tokens_for_logging,
-                 stream=stream,
-                 validation_enabled=enable_validation)
-
-        # Hybrid routing: Heuristic pre-check for non-career domains
-        routed_domain = None
-
-        # Market intel routing veto: Always send to V3 validation for blocking
-        MARKET_VETO_KEYWORDS = [
-            "which industries", "hiring trends", "in-demand", "job market",
-            "market trends", "demand for", "industries hiring", "tech trends",
-            "job trends", "employment trends", "market analysis"
-        ]
-        has_market_veto = any(kw in user_question.lower() for kw in MARKET_VETO_KEYWORDS)
-
-        if enable_validation and not has_market_veto:  # Only route when validation path is considered and not market intel
-            h_domain, h_conf = heuristic_route(user_question)
-            if h_domain and h_conf >= 0.80:
-                routed_domain = h_domain
-                prompt = PromptBuilder.build_domain_prompt(h_domain, user_question)
-                # Disable career validation for non-career domains
-                enable_validation = False
-                log_json("route", request_id, router="heuristic", router_intent=h_domain, router_conf=h_conf)
-            elif USE_LLM_ROUTER and h_conf < 0.80:
-                # Phase 2: LLM router for uncertain cases
-                llm_result = await classify_with_llm(user_question)
-                llm_intent = llm_result["intent"]
-                llm_conf = llm_result["confidence"]
-
-                log_json("route", request_id, router="llm", router_intent=llm_intent, router_conf=llm_conf)
-
-                # Routing thresholds
-                if llm_conf >= 0.6:
-                    # Trust LLM classification
-                    non_career_intents = ["cooking", "travel", "weather", "small_talk", "general_qna",
-                                         "resume_guidance", "job_description", "job_resume_match",
-                                         "recruiting_strategy", "ats_keywords"]
-                    if llm_intent in non_career_intents:
-                        routed_domain = llm_intent
-                        prompt = PromptBuilder.build_domain_prompt(llm_intent, user_question)
-                        enable_validation = False
-                    # else: let career intents fall through to V3 validation
-                elif llm_conf >= 0.4:
-                    # Use heuristic hint if present, else general_qna
-                    if h_domain:
-                        routed_domain = h_domain
-                        prompt = PromptBuilder.build_domain_prompt(h_domain, user_question)
-                        enable_validation = False
-                    else:
-                        routed_domain = "general_qna"
-                        prompt = PromptBuilder.build_domain_prompt("general_qna", user_question)
-                        enable_validation = False
-                else:
-                    # Low confidence: default to general_qna
-                    routed_domain = "general_qna"
-                    prompt = PromptBuilder.build_domain_prompt("general_qna", user_question)
-                    enable_validation = False
-
-            # If not routed by heuristics or LLM, proceed with V3 validation
-            if routed_domain is None:
-                # V3: Classify intent and block if needed
-                intent = None
-                if USE_V3_VALIDATION and enable_validation:
-                    intent = IntentClassifier.classify(user_question)
-                    print(f"Intent classified: {intent.value}")
-
-                    # Block salary/market queries (low validation rates)
-                    if block_low_trust and intent in [QuestionIntent.SALARY_INTEL, QuestionIntent.MARKET_INTEL]:
-                        log_json("end", request_id,
-                                 ok=False,
-                                 exec_ms=int((time.time() - request_start) * 1000),
-                                 intent=intent.value,
-                                 blocked=True)
-                        return {
-                            "blocked": True,
-                            "intent": intent.value,
-                            "message": (
-                                "This question requires real-time compensation/market data. "
-                                "We're integrating with trusted data sources (Levels.fyi, BLS.gov) "
-                                "to provide accurate, up-to-date information. "
-                                "In the meantime, try asking about career transitions, skill development, "
-                                "interview preparation, or learning paths. "
-                                "Expected availability: 2-4 weeks."
-                            )
-                        }
-
-                    # Build proper prompt with template
-                    prompt = PromptBuilder.build_prompt(user_question, intent)
-                    print(f"✓ Prompt formatted with {intent.value} template")
-                else:
-                    # No validation - use raw prompt
-                    prompt = user_question
-        else:
-            # Validation disabled up-front
-            prompt = user_question
-
-        # Phase 4: Domain-specific decoding parameters
-        # Map defaults per domain (can be overridden by sampling_config)
-        # Use conservative, uniform stops; strip artifacts in sanitizer instead
-        if routed_domain == "small_talk":
-            domain_defaults = {
-                "temperature": 0.4,
-                "stop": ["<|im_end|>"],
-                "repetition_penalty": 1.0,
-                "frequency_penalty": 0.0,
-            }
-        elif routed_domain in ["resume_guidance", "job_description", "job_resume_match",
-                               "recruiting_strategy", "ats_keywords"]:
-            # HR domains: Relaxed penalties to avoid terse/early stopping
-            domain_defaults = {
-                "temperature": 0.3,
-                "repetition_penalty": 1.0,
-                "frequency_penalty": 0.0,
-                "stop": ["<|im_end|>"],
-            }
-        elif routed_domain in ["cooking", "general_qna", "travel", "weather"]:
-            domain_defaults = {
-                "temperature": 0.3,
-                "repetition_penalty": 1.15,
-                "frequency_penalty": 0.2,
-                "stop": ["<|im_end|>"],
-            }
-        else:
-            # Career/interview defaults
-            domain_defaults = {
-                "temperature": 0.3,
-                "repetition_penalty": 1.15,
-                "frequency_penalty": 0.2,
-                "stop": ["<|im_end|>"],
-            }
-
-        # Apply per-domain max_tokens if not explicitly provided by user
-        effective_max_tokens = sampling_config.get("max_tokens")
-        if effective_max_tokens is None and routed_domain in domain_max_tokens:
-            effective_max_tokens = domain_max_tokens[routed_domain]
-        elif effective_max_tokens is None:
-            effective_max_tokens = 150  # Global default
-
-        # Clamp to valid range [64, 256]
-        effective_max_tokens = max(64, min(256, effective_max_tokens))
-
-        # Build sampling parameters (user config overrides domain defaults)
-        sampling_params = SamplingParams(
-            max_tokens=effective_max_tokens,
-            temperature=sampling_config.get("temperature", domain_defaults.get("temperature", 0.3)),
-            top_p=sampling_config.get("top_p", 0.9),
-            top_k=sampling_config.get("top_k", 50),
-            presence_penalty=sampling_config.get("presence_penalty", domain_defaults.get("presence_penalty", 0.0)),
-            frequency_penalty=sampling_config.get("frequency_penalty", domain_defaults.get("frequency_penalty", 0.2)),
-            repetition_penalty=sampling_config.get("repetition_penalty", domain_defaults.get("repetition_penalty", 1.15)),
-            stop=sampling_config.get("stop", domain_defaults.get("stop", ["<|im_end|>"])),
-        )
-
-        # Generate response
-        deltas = []  # Initialize for both streaming and non-streaming
-        usage = None  # Initialize for both paths
-
-        if stream:
-            # Streaming mode - aggregate all deltas
-            full_text = ""
-
-            async for chunk in generate_streaming(prompt, sampling_params):
-                if chunk.get("finished"):
-                    full_text = chunk["text"]
-                    usage = chunk["usage"]
-                    deltas = chunk.get("deltas", deltas)  # Use server-side deltas
-                else:
-                    deltas.append(chunk["delta"])
-
-            result_text = full_text
-        else:
-            # Non-streaming mode
-            result = await generate_non_streaming(prompt, sampling_params)
-            result_text = result["choices"][0]["text"]
-            usage = result["usage"]
-
-        # V3: Auto-sanitize and validate
-        if USE_V3_VALIDATION and enable_validation:
-            # Sanitize
-            sanitized, status = AutoSanitizer.sanitize(result_text)
-
-            if status == "EMPTY":
-                # Over-sanitized - use original text instead of regenerating
-                print("⚠ Over-sanitization detected - using original response")
-                sanitized = result_text
-                status = "OK"
-
-            # Validate according to intent
-            if intent == QuestionIntent.SALARY_INTEL:
-                is_valid, issues = ResponseValidator.validate_salary_response(user_question, sanitized)
-            elif intent == QuestionIntent.MARKET_INTEL:
-                # Validate market responses for industries and rationale
-                is_valid, issues = ResponseValidator.validate_market_response(sanitized)
+    }
+    
+    3. Task-specific format:
+    {
+        "input": {
+            "task": "ats_keywords",
+            "messages": [...],
+            "response_format": "json",
+            "safety": {"family_friendly": true},
+            "sampling_params": {...}
+        }
+    }
+    """
+    job_input = job.get("input", {})
+    request_id = str(uuid.uuid4())
+    
+    # Track metrics
+    start_time = time.time()
+    retry_count = 0
+    validation_passed = False
+    task_type = None
+    
+    try:
+        # Determine task type
+        task_type_str = job_input.get("task")
+        
+        # Parse messages or prompt
+        if "messages" in job_input:
+            messages = job_input["messages"]
+            # Auto-detect task if not specified
+            if not task_type_str and messages:
+                user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
+                task_type = detect_task_from_content(user_content)
             else:
-                is_valid, issues = ResponseValidator.validate_career_response(sanitized)
-
-            # DISABLED: Regeneration causes 30x throughput drop (1.3 t/s vs 47.8 t/s)
-            # Log validation failures but accept response to maintain performance
-            if not is_valid:
-                print(f"⚠ Validation failed: {issues} - accepting anyway (regeneration disabled for performance)")
-
-            # Calculate metrics
-            exec_ms = int((time.time() - request_start) * 1000)
-            tokens_out = usage.get("output", 0) if usage else len(sanitized.split())
-
-            # Log request end
-            log_json("end", request_id,
-                     ok=True,
-                     exec_ms=exec_ms,
-                     tokens_generated=tokens_out,
-                     intent=intent.value if intent else "unknown",
-                     valid=is_valid)
-
-            return {
-                "choices": [{
-                    "text": sanitized,
-                    "deltas": deltas if stream else None,  # Token deltas (only new text per chunk)
-                    "tokens": deltas if stream else [sanitized]  # Backward compatibility alias
-                }],
-                "usage": usage or {"input": 0, "output": len(sanitized.split()), "total": len(sanitized.split())},
-                "validation": {
-                    "valid": is_valid,
-                    "issues": issues if not is_valid else [],
-                    "sanitized": sanitized != result_text,
-                    "intent": intent.value if intent else "unknown"
-                },
-                "streaming": stream  # Indicate if response was streamed
-            }
+                try:
+                    task_type = TaskType(task_type_str) if task_type_str else TaskType.GENERIC_CHAT
+                except ValueError:
+                    task_type = TaskType.GENERIC_CHAT
+        elif "prompt" in job_input:
+            # Legacy format
+            prompt = job_input["prompt"]
+            task_type = detect_task_from_content(prompt) if not task_type_str else TaskType(task_type_str)
+            # Convert to messages format
+            messages = [{"role": "user", "content": prompt}]
         else:
-            # No V3 validation - routed domains (may have HR validation)
-            exec_ms = int((time.time() - request_start) * 1000)
-
-            # Sanitize for all routed domains
-            final_text = result_text
-            sanitized_flag = False
+            return {"error": "Either 'messages' or 'prompt' must be provided"}
+        
+        # Get task configuration
+        task_config = TASK_CONFIGS[task_type]
+        
+        # Add system prompt if not present
+        if not any(msg.get("role") == "system" for msg in messages):
+            messages.insert(0, {
+                "role": "system",
+                "content": task_config.system_prompt
+            })
+        
+        # Extract parameters
+        sampling_params_dict = job_input.get("sampling_params", {})
+        temperature = sampling_params_dict.get("temperature", task_config.temperature)
+        max_tokens = sampling_params_dict.get("max_tokens", task_config.max_tokens)
+        top_p = sampling_params_dict.get("top_p", task_config.top_p)
+        stream = sampling_params_dict.get("stream", False)
+        
+        # Safety settings
+        safety_config = job_input.get("safety", {})
+        family_friendly = safety_config.get("family_friendly", True)
+        
+        response_format = job_input.get("response_format", task_config.expected_format)
+        
+        log_json("request_received", request_id, 
+                task=task_type.value,
+                format=response_format,
+                stream=stream)
+        
+        # Convert messages to prompt
+        prompt = convert_messages_to_prompt(messages)
+        
+        # V3 validation for career guidance
+        if USE_V3_VALIDATION and task_config.use_v3_validation:
+            # Use V3 prompt building and validation
+            user_content = next((m["content"] for m in messages if m["role"] == "user"), "")
+            
+            classifier = IntentClassifier()
+            intent = classifier.classify(user_content)
+            
+            prompt_builder = PromptBuilder()
+            enhanced_prompt = prompt_builder.build(user_content, intent)
+            prompt = enhanced_prompt
+        
+        # Create sampling params
+        sampling_params = SamplingParams(
+            temperature=temperature,
+            top_p=top_p,
+            max_tokens=max_tokens,
+            stop=["<|im_end|>", "Human:", "<|endoftext|>"]
+        )
+        
+        # Main generation loop with retry
+        for attempt in range(MAX_RETRIES + 1):
             try:
-                if routed_domain is not None and 'AutoSanitizer' in globals():
-                    s_text, _s_status = AutoSanitizer.sanitize(result_text)
-                    if s_text:
-                        final_text = s_text
-                        sanitized_flag = (s_text != result_text)
+                # Generate response
+                if stream:
+                    # For streaming, return generator
+                    async def generate_stream():
+                        full_text = ""
+                        async for text in stream_with_engine(prompt, sampling_params, request_id):
+                            chunk = text[len(full_text):]
+                            full_text = text
+                            yield chunk
+                        
+                        # Validate final output if needed
+                        if response_format == "json":
+                            is_valid, parsed_data, error_msg = parse_and_validate_json(full_text, task_config)
+                            if not is_valid and attempt < MAX_RETRIES:
+                                # Can't retry in streaming mode
+                                yield f"\n\n[Warning: JSON validation failed: {error_msg}]"
+                    
+                    return runpod.serverless.modules.rp_scale.job_stream_wrapper(generate_stream())
+                else:
+                    # Non-streaming generation
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    full_text = loop.run_until_complete(
+                        generate_with_engine(prompt, sampling_params, request_id)
+                    )
+                    loop.close()
+                
+                # Safety checks
+                if family_friendly and check_profanity(full_text):
+                    if attempt < MAX_RETRIES:
+                        retry_count += 1
+                        messages[0]["content"] += "\n\nIMPORTANT: Do not use profanity or inappropriate language."
+                        prompt = convert_messages_to_prompt(messages)
+                        temperature = max(0.15, temperature * 0.5)
+                        continue
                     else:
-                        # Empty after sanitization, use original to avoid blank response
-                        final_text = result_text
-            except Exception:
-                pass
-
-            # HR domain validation
-            HR_VALIDATORS = {
-                "resume_guidance": ResponseValidator.validate_resume_guidance,
-                "job_description": ResponseValidator.validate_job_description,
-                "job_resume_match": ResponseValidator.validate_job_resume_match,
-                "recruiting_strategy": ResponseValidator.validate_recruiting_strategy,
-                "ats_keywords": ResponseValidator.validate_ats_keywords,
-            }
-
-            is_valid = True
-            issues = []
-            has_validation = False
-
-            if routed_domain in HR_VALIDATORS:
-                validator = HR_VALIDATORS[routed_domain]
-                is_valid, issues = validator(final_text)
-                has_validation = True
-
-            tokens_out = usage.get("output", 0) if usage else len(final_text.split())
-
-            # Log request end
-            log_json("end", request_id,
-                     ok=True,
-                     exec_ms=exec_ms,
-                     tokens_generated=tokens_out,
-                     intent=routed_domain if routed_domain else "none",
-                     valid=is_valid)
-
-            response = {
-                "choices": [{
-                    "text": final_text,
-                    "deltas": deltas if stream else None,
-                    "tokens": deltas if stream else [final_text]
-                }],
-                "usage": usage or {"input": 0, "output": len(final_text.split()), "total": len(final_text.split())},
-                "streaming": stream
-            }
-
-            # Add validation block for HR domains
-            if has_validation:
-                response["validation"] = {
-                    "valid": is_valid,
-                    "issues": issues if not is_valid else [],
-                    "sanitized": sanitized_flag,
-                    "intent": routed_domain
+                        return {"error": "Response contains inappropriate content"}
+                
+                # Check disclaimer for life advice
+                if task_config.requires_disclaimer and not check_disclaimer(full_text):
+                    if attempt < MAX_RETRIES:
+                        retry_count += 1
+                        messages[0]["content"] += "\n\nREQUIRED: Include disclaimer about not being a licensed professional."
+                        prompt = convert_messages_to_prompt(messages)
+                        continue
+                    else:
+                        full_text += "\n\nI am not a licensed professional. For serious concerns, please consult a qualified therapist or counselor."
+                
+                # Validate JSON if expected
+                if response_format == "json":
+                    is_valid, parsed_data, error_msg = parse_and_validate_json(full_text, task_config)
+                    
+                    if not is_valid:
+                        if attempt < MAX_RETRIES:
+                            retry_count += 1
+                            messages[0]["content"] = build_corrective_prompt(
+                                messages[0]["content"],
+                                error_msg,
+                                task_config
+                            )
+                            prompt = convert_messages_to_prompt(messages)
+                            temperature = 0.15
+                            continue
+                        else:
+                            return {
+                                "error": f"JSON validation failed: {error_msg}",
+                                "raw_output": full_text
+                            }
+                    
+                    validation_passed = True
+                    full_text = json.dumps(parsed_data, ensure_ascii=False)
+                
+                # V3 validation for career guidance
+                if USE_V3_VALIDATION and task_config.use_v3_validation:
+                    validator = ResponseValidator()
+                    sanitizer = AutoSanitizer()
+                    
+                    # Validate response
+                    is_valid, issues = validator.validate(full_text, intent)
+                    if not is_valid and attempt < MAX_RETRIES:
+                        retry_count += 1
+                        continue
+                    
+                    # Sanitize response
+                    full_text = sanitizer.sanitize(full_text)
+                
+                # Calculate execution time
+                exec_time = int((time.time() - start_time) * 1000)
+                
+                log_json("request_completed", request_id,
+                        task=task_type.value,
+                        exec_ms=exec_time,
+                        retry_count=retry_count,
+                        validation_passed=validation_passed)
+                
+                # Return response
+                return {
+                    "output": full_text,
+                    "metadata": {
+                        "task": task_type.value,
+                        "retry_count": retry_count,
+                        "validation_passed": validation_passed,
+                        "exec_ms": exec_time
+                    }
                 }
-
-            return response
-
+                
+            except Exception as e:
+                if attempt < MAX_RETRIES:
+                    retry_count += 1
+                    logger.warning(f"Generation failed, retrying: {str(e)}")
+                    continue
+                else:
+                    raise
+        
+        return {"error": "Max retries exceeded"}
+        
     except Exception as e:
-        exec_ms = int((time.time() - request_start) * 1000)
-        log_json("end", request_id,
-                 level="error",
-                 ok=False,
-                 exec_ms=exec_ms,
-                 error=str(e))
-        print(f"Error in handler: {str(e)}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Handler error: {str(e)}", exc_info=True)
+        log_json("request_failed", request_id,
+                level="error",
+                error=str(e),
+                task=task_type.value if task_type else "unknown")
         return {"error": str(e)}
 
-
-# RunPod serverless start
-if __name__ == "__main__":
-    print("Starting RunPod Serverless Handler...")
-    print("Initializing vLLM engine...")
-    initialize_engine()
-    print("✓ Handler ready")
-    runpod.serverless.start({"handler": handler})
+# RunPod serverless handler
+runpod.serverless.start({"handler": handler})
