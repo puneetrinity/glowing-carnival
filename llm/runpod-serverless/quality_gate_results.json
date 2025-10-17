@@ -1,0 +1,558 @@
+{
+  "overall": {
+    "passed": 32,
+    "total": 61,
+    "pass_rate": 52.459016393442624
+  },
+  "domains": {
+    "resume_guidance": {
+      "pass_rate": 90.0,
+      "passed": 9,
+      "total": 10,
+      "results": [
+        {
+          "question": "Write resume bullets for Senior Backend Engineer with Python, FastAPI, AWS experience",
+          "passed": false,
+          "issues": [
+            "HTTPSConnectionPool(host='api.runpod.ai', port=443): Read timed out. (read timeout=60)"
+          ],
+          "text": ""
+        },
+        {
+          "question": "Optimize my resume for DevOps Engineer with Kubernetes, Terraform, CI/CD",
+          "passed": true,
+          "issues": [],
+          "text": "1. 100% ownership of Kubernetes cluster implementation, reducing cloud costs by 45%\n2. Built CI/CD pipeline using Jenkins and Docker, increasing throughput by 50%\n3. Reduced infrastructure provision time by 75% through optimized Terraform workflows\n4. Led migration of 50+ services to production, ens",
+          "exec_time_ms": 1566
+        },
+        {
+          "question": "Create resume bullets for Data Scientist with ML, Python, TensorFlow background",
+          "passed": true,
+          "issues": [],
+          "text": "1. Developed natural language processing application handling 100k+ daily transactions\n2. Built recommendation system improving user engagement by 35%\n3. Optimized deep learning model reducing inference time by 40%\n4. Collaborated with cross-functional team delivering AI solution to market\n5. Conduc",
+          "exec_time_ms": 1137
+        },
+        {
+          "question": "Resume bullets for Frontend Developer with React, TypeScript, Next.js",
+          "passed": true,
+          "issues": [],
+          "text": "1. Developed responsive React components library serving 50K+ daily active users\n2. Built CI/CD pipeline automating frontend workflow and reducing manual effort by 80%\n3. Optimized TypeScript application performance improving loading speed by 45%\n4. Collaborated with cross-functional team delivering",
+          "exec_time_ms": 1244
+        },
+        {
+          "question": "Senior Product Manager resume with 5 years B2B SaaS experience",
+          "passed": true,
+          "issues": [],
+          "text": "1. 5+ years B2B SaaS experience\n2. Led 3-person engineering team delivering product milestones\n3. Launched 2 major product versions delivering on key business metrics\n4. Conducted competitive analysis shaping product strategy\n5. Built marketing website showcasing product features and success stories",
+          "exec_time_ms": 1011
+        },
+        {
+          "question": "Full Stack Engineer resume: Node.js, React, PostgreSQL, Docker",
+          "passed": true,
+          "issues": [],
+          "text": "1. Built scalable Node.js backend handling 10k+ daily requests\n2. Developed React front-end serving 5k+ daily users\n3. Optimized PostgreSQL database reducing query time by 80%\n4. Wrote CI/CD pipeline using Jenkins and Docker automating deployment process\n5. Collaborated with 5-person engineering tea",
+          "exec_time_ms": 1161
+        },
+        {
+          "question": "Cloud Architect resume with AWS, Azure, multi-cloud migration experience",
+          "passed": true,
+          "issues": [],
+          "text": "1. 100% ownership of AWS migration project delivering 45% cost optimization\n2. Led team of 8 engineers delivering scalable API solution handling 10k+ daily requests\n3. Architected multi-cloud solution reducing vMware costs by 35%\n4. Negotiated 2-year contract extension with $500k annual savings\n5. T",
+          "exec_time_ms": 1526
+        },
+        {
+          "question": "Mobile Engineer resume: React Native, iOS, Android, Firebase",
+          "passed": true,
+          "issues": [],
+          "text": "1. Built scalable React Native solutions serving 100k+ daily users\n2. Developed iOS application achieving 4.5/5.0 user rating\n3. Architected Android system handling 10k+ daily active users\n4. Optimized React Native performance reducing load time by 40%\n5. Collaborated with 5-person engineering team ",
+          "exec_time_ms": 1477
+        },
+        {
+          "question": "Security Engineer resume: penetration testing, SIEM, incident response",
+          "passed": true,
+          "issues": [],
+          "text": "1. 100% test coverage in Python projects\n2. Built CI/CD pipeline for Python applications\n3. Reduced Python application deployment time by 50%\n4. Improved Python system performance by 45%\n5. Contributed to open source Python projects\n6. Led team of 5 developers delivering Python projects on time\n7. E",
+          "exec_time_ms": 1667
+        },
+        {
+          "question": "Site Reliability Engineer resume: observability, on-call, SLOs",
+          "passed": true,
+          "issues": [],
+          "text": "1. 100% uptime in production systems post-migration\n2. Reduced on-call response time by 45%\n3. Implemented monitoring system with 95% coverage\n4. Optimized alerting system reducing false positives by 30%\n5. Collaborated with 15-person engineering team on 2024 roadmap\n6. Mentored 3 junior engineers i",
+          "exec_time_ms": 1086
+        }
+      ]
+    },
+    "job_description": {
+      "pass_rate": 90.0,
+      "passed": 9,
+      "total": 10,
+      "results": [
+        {
+          "question": "Write job description for Senior Backend Engineer at fintech startup",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative team as Senior Backend Engineer. Build scalable Python solutions serving millions of users worldwide. Shape the future of finance.\n\n**Responsibilities:**\n\n\u2022 Design and implement scalable Python solutions\n\u2022 Build production systems with Node.js infrastructure\n\u2022 Optim",
+          "exec_time_ms": 1669
+        },
+        {
+          "question": "Create JD for DevOps Engineer at cloud infrastructure company",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative DevOps Engineer team as a key member of our dynamic cloud infrastructure leadership. Build scalable Kubernetes solutions serving millions of users worldwide. Shape the future of technology.\n\n**Responsibilities:**\n\n\u2022 Design and implement scalable Kubernetes solutions",
+          "exec_time_ms": 1697
+        },
+        {
+          "question": "Job description for Staff Data Scientist at ML-focused startup",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative team as Staff Data Scientist. Build scalable Python solutions serving millions of users worldwide. Shape the future of technology.\n\n**Responsibilities:**\n- Design and implement scalable Python solutions\n- Build production systems with SQL infrastructure\n- Optimize p",
+          "exec_time_ms": 1628
+        },
+        {
+          "question": "Write JD for Frontend Tech Lead at e-commerce company",
+          "passed": false,
+          "issues": [
+            "Missing nice-to-have or benefits section"
+          ],
+          "text": "**Summary:**\n\nJoin our innovative e-commerce team as Frontend Tech Lead. Shape the future of online shopping experiences. Lead a dynamic team of 5-10 engineers, mentoring junior developers and driving technical decisions. Build scalable React solutions serving millions of daily users. Your expertise",
+          "exec_time_ms": 1973
+        },
+        {
+          "question": "Product Manager job description for B2B SaaS company",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative B2B SaaS team as Product Manager. Build cutting-edge products that transform how businesses operate. Drive product strategy, roadmap development, and execution. Shape the future of our industry.\n\n**Responsibilities:**\n\n\u2022 Define product strategy and vision\n\u2022 Collabor",
+          "exec_time_ms": 1952
+        },
+        {
+          "question": "Full Stack Engineer JD for early-stage startup",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative team as Full Stack Engineer. Build scalable React solutions serving millions of users worldwide. Shape the future of technology.\n\n**Responsibilities:**\n\n\u2022 Design and implement scalable React solutions\n\u2022 Build production systems with JavaScript infrastructure\n\u2022 Colla",
+          "exec_time_ms": 1741
+        },
+        {
+          "question": "Cloud Architect job posting for enterprise company",
+          "passed": true,
+          "issues": [],
+          "text": "**Join Our Innovative Team as Cloud Architect**\n\n**Summary:**\nBe part of our dynamic team building cutting-edge products used by millions worldwide. Your expertise in cloud computing will shape the future of technology. Collaborate with global professionals to innovate and grow.\n\n**Responsibilities:",
+          "exec_time_ms": 1906
+        },
+        {
+          "question": "Mobile Engineer JD for consumer app with 10M users",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative team as Mobile Engineer, crafting cutting-edge solutions that power our 10M-user global platform. Your expertise will be crucial in shaping the future of our mobile experience.\n\n**Responsibilities:**\n\n\u2022 Design and develop scalable mobile applications\n\u2022 Write clean, ",
+          "exec_time_ms": 1856
+        },
+        {
+          "question": "Security Engineer job description for cybersecurity firm",
+          "passed": true,
+          "issues": [],
+          "text": "**Summary:**\n\nJoin our innovative Security Engineering team as a Security Engineer. Build scalable Python solutions serving millions of daily active users worldwide. Shape the future of technology.\n\n**Responsibilities:**\n\n\u2022 Design and develop scalable Python solutions\n\u2022 Implement security features a",
+          "exec_time_ms": 1763
+        },
+        {
+          "question": "SRE job posting for high-traffic platform (1B requests/day)",
+          "passed": true,
+          "issues": [],
+          "text": "**Senior Software Engineer - Reliability Engineering**\n\n**Summary:**\nJoin our innovative team building cutting-edge products used by millions worldwide. As a Senior SRE, you'll play a crucial role in designing and building systems that handle 1B+ daily requests. Your expertise will help shape the fu",
+          "exec_time_ms": 1986
+        }
+      ]
+    },
+    "job_resume_match": {
+      "pass_rate": 0.0,
+      "passed": 0,
+      "total": 10,
+      "results": [
+        {
+          "question": "Match resume (Python, Django, PostgreSQL, 3 yrs) to JD requiring Python, FastAPI, AWS, 5+ yrs",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 7/10 or 70%\n\nMatches:\n1. Python experience aligns with job requirements\n2. Django skills meet senior-level expectations\n3. PostgreSQL background demonstrates relevant experience\n4. Django matches core job requirements\n\nGaps:\n1. FastAPI experience is missing (critical requirement)\n2. Python 3.",
+          "exec_time_ms": 999
+        },
+        {
+          "question": "Evaluate candidate: React, TypeScript, 2 yrs vs JD: Senior Frontend (React, Next.js, 5+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60%\n\nMatches:\n1. React experience aligns with job requirement\n2. TypeScript skills meet senior-level expectations\n3. JavaScript expertise matches technical requirements\n4. UI/UX background aligns with role responsibilities\n\nGaps:\n1. No testing experience (critical requirement)\n2. Limi",
+          "exec_time_ms": 889
+        },
+        {
+          "question": "Score match: DevOps (Jenkins, Docker, 4 yrs) vs JD: Kubernetes, Terraform, GitOps, 6+ yrs",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60% match\n\nMatches: \u2022 kubernetes experience aligns with job requirements \u2022 docker skills meet senior-level expectations \u2022 Continuous integration experience matches job requirements \u2022 Monitoring background aligns with core responsibilities\n\nGaps: \u2022 No cloud optimization experience (cri",
+          "exec_time_ms": 960
+        },
+        {
+          "question": "Candidate: Data Science (Python, scikit-learn, 3 yrs) vs JD: ML Engineer (PyTorch, TensorFlow, 5+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60%\n\nMatches: \u2022 Python experience aligns with job requirements \u2022 scikit-learn background meets senior expectations \u2022 Previous projects demonstrate relevant experience \u2022 x years meets minimum 5-year requirement\n\nGaps: \u2022 No PyTorch experience (critical requirement) \u2022 Limited cloud platf",
+          "exec_time_ms": 1042
+        },
+        {
+          "question": "Resume: Product Manager (B2C, 3 yrs) vs JD: Senior PM (B2B SaaS, 5+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6.5/10 (65%)\n\n**Matches:**\n\n1. Project experience aligns (B2C vs B2B SaaS)\n2. Team management experience matches\n3. Market analysis background aligns\n4. Agile methodology knowledge matches\n\n**Gaps:**\n\n1. No cloud platform experience (critical for B2B SaaS)\n2. Limited B2B experience\n3. Missing",
+          "exec_time_ms": 980
+        },
+        {
+          "question": "Match: Full Stack (MERN, 2 yrs) vs JD: Staff Engineer (distributed systems, 8+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 3/10 or 30%\n\nMatches: \u2022 Full Stack: JavaScript, React (aligns with JD) \u2022 Staff Engineer: C++, Python, Spring (aligns with Full Stack) \u2022 Both roles: System design, Database optimization (common requirements) \u2022 Gaps: \u2022 Staff Engineer: No cloud experience (critical gap) \u2022 Full Stack: Missing bac",
+          "exec_time_ms": 1046
+        },
+        {
+          "question": "Candidate: Cloud (AWS, 4 yrs) vs JD: Multi-cloud Architect (AWS, Azure, GCP, 7+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60%\n\nMatches: \u2022 Cloud experience aligns with multi-cloud requirements \u2022 AWS background matches job requirements \u2022 4 years matches senior role expectations \u2022 No cloud certifications (critical gap) \u2022 Limited cloud tools (AWS/GCP) experience \u2022 Missing Azure expertise (critical gap)\n\nGaps",
+          "exec_time_ms": 1027
+        },
+        {
+          "question": "Resume: Mobile (React Native, 3 yrs) vs JD: iOS Lead (Swift, 5+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60%\n\nMatches: \u2022 React Native experience aligns with iOS development \u2022 Mobile background shows relevant experience \u2022 Swift skills meet senior-level expectations \u2022 UI/UX experience relevant to role\n\nGaps: \u2022 No crash analytics experience (critical for iOS Lead) \u2022 Limited cloud platform e",
+          "exec_time_ms": 945
+        },
+        {
+          "question": "Match: Security (SOC analyst, 2 yrs) vs JD: Security Architect (zero trust, 6+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 4.5/10 (45%) Matches: \u2022 Unix knowledge \u2022 Network security \u2022 Security operations \u2022 Monitoring Gaps: \u2022 Zero trust architecture \u2022 Cloud security \u2022 Leadership experience \u2022 Team management Recommendation: Interview - Candidate has core competencies but lacks senior-level experience.",
+          "exec_time_ms": 690
+        },
+        {
+          "question": "Candidate: SRE (monitoring, 3 yrs) vs JD: Staff SRE (distributed systems, capacity planning, 7+ yrs)",
+          "passed": false,
+          "issues": [
+            "Response too short (< 80 words)"
+          ],
+          "text": "Score: 6/10 or 60%\n\nMatches: \u2022 monitoring: 3+ years experience \u2022 capacity planning: 1+ years experience \u2022 distributed systems: 1+ years experience \u2022 team management: 1+ years experience\n\nGaps: \u2022 distributed systems: 6+ years expected \u2022 capacity planning: 5+ years expected \u2022 team management: 3+ years",
+          "exec_time_ms": 1023
+        }
+      ]
+    },
+    "recruiting_strategy": {
+      "pass_rate": 30.0,
+      "passed": 3,
+      "total": 10,
+      "results": [
+        {
+          "question": "Sourcing strategy for hiring 5 senior backend engineers in 3 months",
+          "passed": true,
+          "issues": [],
+          "text": "1. 3D Scan of Sourcing Strategy: \u2022 *Tactics:** \u2022 1. LinkedIn Recruiter campaign (Week 1-2) \u2022 2. Tech meetups and conferences (Week 3-4) \u2022 3. University partnerships (Month 2-3) \u2022 4. Portfolio reviews (Month 2-3) \u2022 5. Industry-specific associations (Month 1-2) \u2022 *Metrics:** \u2022 1. Response rate: 15-20%",
+          "exec_time_ms": 1539
+        },
+        {
+          "question": "Recruiting plan for 10 ML engineers at early-stage AI startup",
+          "passed": false,
+          "issues": [
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 1. Post on LinkedIn Jobs with optimized keywords (Target 10-15 years experience)\n2. Engage passive candidates via LinkedIn Recruiter (Focus on 5-7 years experience)\n3. Attend ML conferences and job fairs (San Francisco, Boston, New York)\n4. Use GitHub Advanced Search for relevant open-source cont",
+          "exec_time_ms": 1009
+        },
+        {
+          "question": "Hire 3 Staff+ engineers in competitive market with limited budget",
+          "passed": true,
+          "issues": [],
+          "text": "1. 3D Model - Sourcing Strategy for Staff+ Engineers:**\n\n**Sourcing Channels:**\n1. LinkedIn Recruiter - Target 5-7 years experience\n2. GitHub - Search relevant open-source contributors\n3. Stack Overflow Jobs - Post detailed requirements\n4. University partnerships - Local tech schools\n5. HackerRank -",
+          "exec_time_ms": 1876
+        },
+        {
+          "question": "Sourcing strategy for remote-first startup hiring globally",
+          "passed": false,
+          "issues": [
+            "Response too short (< 60 words)",
+            "Too few sourcing channels mentioned (2, expected 4+)",
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 1. LinkedIn Recruiter targeting 5-7 years experience\n2. Post on Stack Overflow for backend developers\n3. Recruit from university tech clubs worldwide\n4. Use Upwork for freelance developers\n5. Network with local tech community\n6. Test technical skills in job postings\n7. Offer competitive compensat",
+          "exec_time_ms": 795
+        },
+        {
+          "question": "Recruiting plan for building security team from scratch (5 roles)",
+          "passed": false,
+          "issues": [
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 1. Post on LinkedIn Jobs with optimized keywords (Target 10-15 years experience)\n2. Engage passive candidates via LinkedIn Recruiter (Average 5-7 years experience)\n3. Attend cybersecurity conferences and job fairs\n4. Use GitHub and Stack Overflow for technical roles\n5. Network with security profe",
+          "exec_time_ms": 972
+        },
+        {
+          "question": "Hire 8 DevOps engineers in 6 months for cloud migration project",
+          "passed": true,
+          "issues": [],
+          "text": "1. 1. Post on LinkedIn Jobs with optimized keywords (150+ applications)\n2. Engage passive candidates via LinkedIn Recruiter (100+ qualified candidates)\n3. Attend DevOps engineering meetups and job fairs (30+ interviews)\n4. Use GitHub Advanced Search for relevant open-source contributors (15+ intervi",
+          "exec_time_ms": 1148
+        },
+        {
+          "question": "Sourcing strategy for diverse engineering team (underrepresented groups)",
+          "passed": false,
+          "issues": [
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 1. Target underrepresented groups on LinkedIn with tailored messages\n2. Attend diversity-focused tech conferences and job fairs\n3. Build relationships with university career services (especially minority-serving institutions)\n4. Use blind hiring processes with demographic filters\n5. Develop inter",
+          "exec_time_ms": 873
+        },
+        {
+          "question": "Recruiting plan for senior IC roles (Staff, Principal) at scale-up",
+          "passed": false,
+          "issues": [
+            "Too few sourcing channels mentioned (2, expected 4+)",
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 300+ Candidate Pipeline Strategy for Senior IC Roles**\n\n**Sourcing Strategy:**\n\n**1. LinkedIn Recruiter Campaign (120 candidates)**\n\n- **Sourcing Channels:** LinkedIn Recruiter (120 candidates)\n- **Sourcing Tools:** LinkedIn Recruiter, LinkedIn Sales Navigator\n- **Sourcing Tactics:** \n - Target 5",
+          "exec_time_ms": 1593
+        },
+        {
+          "question": "Hire frontend engineers in saturated market (Bay Area)",
+          "passed": false,
+          "issues": [
+            "Missing cadence/timing information"
+          ],
+          "text": "1. \ufe0f **Recruiting Strategy for Frontend Engineers - Bay Area:** **Sourcing Channels:** \u2022 LinkedIn Recruiter - Target 5-7 years experience \u2022 Stack Overflow Jobs - Include JavaScript, React experience \u2022 GitHub Jobs - Search relevant open-source contributors \u2022 Employee referrals - $50K bonus for hiring",
+          "exec_time_ms": 1610
+        },
+        {
+          "question": "Sourcing strategy for hiring in emerging tech hub (Austin, Singapore)",
+          "passed": false,
+          "issues": [
+            "Missing cadence/timing information"
+          ],
+          "text": "1. 1. LinkedIn Recruiter optimization (400 candidates)\n2. Employee referrals with $5K bonus (250 applications)\n3. Tech meetups and conferences networking (150 leads)\n4. University partnerships for campus hiring (80 interviews)\n5. Industry-specific job boards advertising (120 applications)\n6. Data sc",
+          "exec_time_ms": 1210
+        }
+      ]
+    },
+    "ats_keywords": {
+      "pass_rate": 10.0,
+      "passed": 1,
+      "total": 10,
+      "results": [
+        {
+          "question": "List ATS keywords for Senior Backend Engineer (Python, distributed systems)",
+          "passed": false,
+          "issues": [
+            "Too few keywords (2, expected 20-40)"
+          ],
+          "text": "1. 8-12 Keywords/Phrases for Senior Backend Engineer (Python, distributed systems):** \u2022 *ATS Keywords:** \u2022 Python \u2022 Django/Flask \u2022 FastAPI \u2022 RESTful APIs \u2022 PostgreSQL \u2022 Redis \u2022 MongoDB \u2022 System design \u2022 Database optimization \u2022 Microservices \u2022 AWS/GCP/Azure \u2022 CI/CD \u2022 Unit testing \u2022 System testing \u2022 P",
+          "exec_time_ms": 1445
+        },
+        {
+          "question": "ATS keywords for DevOps Engineer with cloud and infrastructure focus",
+          "passed": false,
+          "issues": [
+            "Too few keywords (1, expected 20-40)"
+          ],
+          "text": "1. 8-12 DevOps Engineer Keywords/Phrases: \u2022 cloud architecture \u2022 Kubernetes \u2022 Jenkins \u2022 ArgoCD \u2022 Terraform \u2022 AWS \u2022 GCP \u2022 Azure \u2022 CI/CD \u2022 Prometheus \u2022 Grafana \u2022 Spinnaker \u2022 Terraform \u2022 AWS \u2022 GCP \u2022 Azure \u2022 Terraform \u2022 AWS \u2022 GCP \u2022 Azure \u2022 Terraform \u2022 AWS \u2022 GCP \u2022 Azure \u2022 Terraform \u2022 AWS \u2022 GCP \u2022 Azure \u2022 ",
+          "exec_time_ms": 1377
+        },
+        {
+          "question": "Extract keywords for Data Scientist resume (ML, deep learning)",
+          "passed": false,
+          "issues": [
+            "Too few keywords (13, expected 20-40)",
+            "Response too short (< 60 words, expected 80-120)"
+          ],
+          "text": "1. 8-12 Keywords/Phrases for Data Scientist:\n\n1. Python\n2. PyTorch/TensorFlow\n3. Pandas/Numpy\n4. Scikit-learn\n5. AWS/GCP/Azure\n6. Jupyter Notebooks\n7. SQL\n8. Data Visualization\n9. Machine Learning\n10. Deep Learning\n11. Artificial Intelligence\n12. Business Intelligence",
+          "exec_time_ms": 970
+        },
+        {
+          "question": "ATS keywords for Frontend Engineer specializing in React ecosystem",
+          "passed": false,
+          "issues": [
+            "Too few keywords (1, expected 20-40)"
+          ],
+          "text": "1. 8-12 Keywords/Phrases for Frontend Engineer specializing in React ecosystem: \u2022 React \u2022 TypeScript \u2022 JavaScript \u2022 Redux \u2022 Next.js \u2022 Webpack \u2022 CSS \u2022 Responsive Design \u2022 UI/UX \u2022 Material-UI \u2022 Chakra UI \u2022 Testing \u2022 Jest \u2022 Cypress \u2022 Performance Optimization \u2022 Responsive \u2022 Mobile-first \u2022 UI/UX/UX \u2022 Acc",
+          "exec_time_ms": 1333
+        },
+        {
+          "question": "Product Manager keywords for B2B SaaS and enterprise",
+          "passed": false,
+          "issues": [
+            "Too few keywords (13, expected 20-40)",
+            "Response too short (< 60 words, expected 80-120)"
+          ],
+          "text": "1. 8-12 Product Manager Keywords for B2B SaaS and Enterprise:\n\n1. Product strategy\n2. Market analysis\n3. Customer segmentation\n4. User experience\n5. Feature prioritization\n6. Roadmap planning\n7. Cross-functional collaboration\n8. Stakeholder management\n9. Business model\n10. Revenue generation\n11. Sca",
+          "exec_time_ms": 1171
+        },
+        {
+          "question": "ATS optimization for Full Stack Engineer (MERN stack)",
+          "passed": true,
+          "issues": [],
+          "text": "1. 8-12 Keywords/Phrases for Full Stack Engineer (MERN stack) ATS Optimization:**\n\n\u2022 **Technical Skills:** \u2022 JavaScript (primary) \u2022 Node.js \u2022 React \u2022 Redux \u2022 Express \u2022 MongoDB \u2022 CSS \u2022 HTML \u2022 xperience Level: 3-5 years \u2022 *ATS Keywords:** \u2022 JavaScript, Node.js, React, Redux, Express, MongoDB, CSS, HTM",
+          "exec_time_ms": 1331
+        },
+        {
+          "question": "Keywords for Cloud Architect with multi-cloud experience",
+          "passed": false,
+          "issues": [
+            "Too few keywords (12, expected 20-40)",
+            "Response too short (< 60 words, expected 80-120)"
+          ],
+          "text": "1. 1. AWS\n2. Azure\n3. GCP\n4. Kubernetes\n5. Terraform\n6. CloudFormation\n7. VPC\n8. Subnets\n9. Security groups\n10. IAM\n11. GCP Cloud Storage\n12. RDS",
+          "exec_time_ms": 721
+        },
+        {
+          "question": "ATS keywords for Mobile Engineer (cross-platform)",
+          "passed": false,
+          "issues": [
+            "Too few keywords (12, expected 20-40)",
+            "Response too short (< 60 words, expected 80-120)"
+          ],
+          "text": "1. ionic\n2. react native\n3. swift\n4. kotlin\n5. mobile ui/ux\n6. rest\n7. sqlite\n8. offline-first\n9. crash analytics\n10. app store optimization\n11. performance tuning\n12. offline capabilities",
+          "exec_time_ms": 688
+        },
+        {
+          "question": "Security Engineer keywords for AppSec and cloud security",
+          "passed": false,
+          "issues": [
+            "Too few keywords (1, expected 20-40)"
+          ],
+          "text": "1. 8-12 Security Engineer Keywords/Phrases: \u2022 Python \u2022 Django/Flask/FastAPI \u2022 RESTful APIs \u2022 PostgreSQL/MySQL \u2022 AWS/GCP/Azure \u2022 CI/CD \u2022 Jenkins \u2022 Prometheus \u2022 Kubernetes \u2022 Terraform \u2022 Cloud Security \u2022 Zero Trust \u2022 PCI DSS \u2022 ISO 27001 \u2022 NIST \u2022 GDPR \u2022 CCPA \u2022 Information Security \u2022 Security Operations ",
+          "exec_time_ms": 1360
+        },
+        {
+          "question": "SRE keywords focusing on observability and incident response",
+          "passed": false,
+          "issues": [
+            "Too few keywords (2, expected 20-40)"
+          ],
+          "text": "1. 8-12 SRE Keywords/Phrases:**\n\n\u2022 **Observability:** \u2022 Prometheus \u2022 Grafana \u2022 Kibana \u2022 ELK Stack \u2022 Dynatrace \u2022 AppDynamics \u2022 New Relic \u2022 Datadog \u2022 Prometheus \u2022 Grafana \u2022 Kibana \u2022 ELK Stack \u2022 Dynatrace \u2022 AppDynamics \u2022 New Relic \u2022 Datadog \u2022 Monitoring \u2022 Alerting \u2022 Dashboarding \u2022 Time Series \u2022 Metrics",
+          "exec_time_ms": 1334
+        }
+      ]
+    },
+    "career_guidance": {
+      "pass_rate": 100.0,
+      "passed": 6,
+      "total": 6,
+      "results": [
+        {
+          "question": "I want to transition from QA to Backend Engineering. What skills should I learn?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. Core Skills**: \u2022 *QA to Backend Engineering Transition Guide:** :**Step 1: Strengthen Core Competencies** (Weeks 1-4) \u2022 Unix \u2022 Python \u2022 Flask \u2022 Django \u2022 Build systems :**Step 2: Build Portfolio Project** (Weeks 5-12) \u2022 Real-world project showcasing Python skills \u2022 Purpose: ",
+          "exec_time_ms": 1521
+        },
+        {
+          "question": "How do I move from Frontend to Full Stack in 6 months?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n**Step-by-Step Guide:**\n\n**1. Assess Current Skills (Weeks 1-2)**\n\n**2. Create Learning Plan (Weeks 3-4)**\n\n**3. Develop Core Competencies (Weeks 5-16)**\n\n**4. Build Portfolio showcasing Full Stack projects (Weeks 17-24)**\n\n**5. Network with Full Stack professionals (Weeks 25-",
+          "exec_time_ms": 1311
+        },
+        {
+          "question": "Transitioning from data analyst to ML engineer - learning path?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. **Optimizing Your Data Analyst to ML Engineer Transition:**\n\n**Step 1: Strengthen Core Skills (Weeks 1-4)**\n- Take on additional responsibilities in current role\n- Practice core competencies through projects\n- Join relevant professional associations\n\n**Step 2: Build Portfol",
+          "exec_time_ms": 1575
+        },
+        {
+          "question": "Career path from junior to senior engineer in 3 years?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. **Optimizing Your Cloud Engineer Resume:**\n\n**Key Sections to Highlight:** \u2022 :**Skills:** Cloud computing, JavaScript, Python, Angular, Node.js \u2022 :**Experience:** Quantify achievements related to core competencies \u2022 :**Projects:** Showcase 2-3 projects using cloud computing",
+          "exec_time_ms": 1140
+        },
+        {
+          "question": "How to transition from IC to Engineering Manager?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. **Skill Development:** Focus on project planning, team leadership, agile, stakeholder management, technical leadership\n2. **Learning Path:** Gain expertise in core competencies first\n3. **Experience:** Look for related roles or projects\n4. **Networking:** Connect with profe",
+          "exec_time_ms": 1345
+        },
+        {
+          "question": "Moving from startup to FAANG - what should I prepare?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. **Market Research:** \n - *Key Metrics:** Market size, growth rate, competition, entry barriers \n \u2022 *Tools:** LinkedIn Analytics, SimilarWeb, Google Trends \n \u2022 *Timeline:** 2 weeks\n\n2. **Competitor Analysis:** \n - *Key Metrics:** Market share, product offering, pricing strat",
+          "exec_time_ms": 1596
+        }
+      ]
+    },
+    "interview_skills": {
+      "pass_rate": 66.66666666666666,
+      "passed": 4,
+      "total": 6,
+      "results": [
+        {
+          "question": "How do I prepare for system design interviews at senior level?",
+          "passed": false,
+          "issues": [
+            "Missing skill guidance keywords"
+          ],
+          "text": "A practical overview:\n\n1. **Common System Design Questions:** \u2022 . \"How would you design a URL shortening service like bit.ly?\" \u2022 . \"Design a chat system for 1 million concurrent users\" \u2022 . \"How would you design a notification system?\" \u2022 . \"Design a distributed caching system\" \u2022 . \"How would you desi",
+          "exec_time_ms": 1571
+        },
+        {
+          "question": "Behavioral interview prep for FAANG companies?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview: \n\n\u2022 **Optimizing Your Cloud Engineer Interview Preparation:**\n\n **Technical Preparation:** \u2022 Core concepts: data structures, algorithms, system design, coding \u2022 Practical skills: Hands-on projects, coding challenges \u2022 Tools/Technologies: MS Office, collaboration tools, project ",
+          "exec_time_ms": 1248
+        },
+        {
+          "question": "Coding interview preparation for backend engineer role?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n1. . **Technical Preparation:** \u2022 Core concepts: domain knowledge, problem solving, communication, analytical thinking \u2022 Practical skills: Hands-on projects, coding challenges \u2022 Tools/Technologies: Node.js, Python, Docker, Kubernetes 2. **Behavioral Questions:** \u2022 Tell me abou",
+          "exec_time_ms": 1554
+        },
+        {
+          "question": "How to showcase leadership in interview as IC?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview: \n\n\u2022 **Optimizing Your Information Security Analyst Interview:**\n\n **Technical Preparation:** \u2022 Core concepts: domain knowledge, problem solving, communication, analytical thinking \u2022 Practical skills: Hands-on projects, coding challenges \u2022 Tools/Technologies: MS Office, collabor",
+          "exec_time_ms": 1556
+        },
+        {
+          "question": "Prepare for product sense questions in PM interview?",
+          "passed": false,
+          "issues": [
+            "Missing skill guidance keywords"
+          ],
+          "text": "A practical overview:\n\n1. **Product Sense Preparation Guide**\n\n**Section 1: Market Analysis**\n- **Market Trends:** Research industry-specific trends and how they impact your product\n- **Customer Demographics:** Understand target audience characteristics and behaviors\n- **Competitive Landscape:** Ana",
+          "exec_time_ms": 1569
+        },
+        {
+          "question": "ML interview prep: algorithms vs practical projects?",
+          "passed": true,
+          "issues": [],
+          "text": "A practical overview:\n\n- ML Interview Prep:** \u2022 *Key Sections:** \u2022 . Algorithms (2-3 days) \u2022 . Practical Projects (3-4 days) \u2022 . Case Studies (2-3 days) \u2022 . Industry Knowledge (1-2 days) \u2022 *Target Companies:** AI/ML companies, tech startups, consulting firms \u2022 *Ideal Candidate Profile:** \u2022 2-5 years",
+          "exec_time_ms": 1422
+        }
+      ]
+    }
+  }
+}

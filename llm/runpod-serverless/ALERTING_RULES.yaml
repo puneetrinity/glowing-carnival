@@ -1,0 +1,59 @@
+# ALERTING RULES (Prometheus/Grafana-compatible)
+
+groups:
+  - name: chat-prod-slos
+    interval: 30s
+    rules:
+      - alert: ChatP95High
+        expr: histogram_quantile(0.95, sum(rate(request_latency_ms_bucket{service="chat"}[5m])) by (le)) > 8000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "P95 latency above 8s"
+          description: "Investigate cold starts / queue buildup. Consider raising workersMin/Max."
+
+      - alert: ChatP95Warning
+        expr: histogram_quantile(0.95, sum(rate(request_latency_ms_bucket{service="chat"}[5m])) by (le)) > 7000
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "P95 latency above 7s (warning)"
+          description: "Watch for trend. Check queue depth and cold start rate."
+
+      - alert: ChatErrorRateHigh
+        expr: (sum(rate(http_requests_total{service="chat",code=~"5.."}[5m])) / sum(rate(http_requests_total{service="chat"}[5m]))) * 100 > 0.5
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "HTTP 5xx error rate above 0.5%"
+          description: "Possible instability. Consider pausing scale-up, drain, rollback."
+
+      - alert: ChatQueueStuck
+        expr: sum(chat_queue_pending{service="chat"}) > 0
+        for: 30s
+        labels:
+          severity: warning
+        annotations:
+          summary: "Requests pending in queue > 0 for 30s"
+          description: "Sustained backlog. Increase workersMax or enforce client concurrency ≤3."
+
+      - alert: ChatColdStartsBurst
+        expr: increase(chat_worker_cold_starts_total{service="chat"}[5m]) > 5
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Cold starts >5 in 5m"
+          description: "Raise workersMin or idleTimeout; verify scaler aggressiveness."
+
+      - alert: ChatCapacity80pct
+        expr: (sum(rate(http_requests_total{service="chat"}[1m])) / (35 * 5)) > 0.8
+        for: 5m
+        labels:
+          severity: info
+        annotations:
+          summary: "Sustained load >80% of capacity (workersMax=5, 35 rpm/worker)"
+          description: "Consider increasing workersMax or optimizing tokens."

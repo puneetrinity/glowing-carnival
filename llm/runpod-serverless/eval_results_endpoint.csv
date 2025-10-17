@@ -1,0 +1,117 @@
+domain,prompt,ok,issues,len,preview,http_status,exec_ms
+resume_guidance,"Optimize my resume for Backend Engineer (Python, FastAPI, Postgres, AWS).",True,,108,"100% test coverage: Python, FastAPI, Postgresql
+2. Built CI/CD pipeline with Jenkins and Docker, reducing deployment time by 60%
+3. Optimized system to handle 10k+ daily active users, reducing server ",200,1745
+resume_guidance,"Optimize my resume for DevOps Engineer (Kubernetes, Terraform, EKS).",False,len;verbs,46,"15% code refactoring reduction
+2. 45% deployment time decrease
+3. 30% system performance improvement
+4. Implement CI/CD pipelines with Jenkins and Docker
+5. Design scalable Kubernetes solutions
+6. Men",200,875
+resume_guidance,"Optimize my resume for Data Scientist (PyTorch, XGBoost, SQL).",True,,113,"100% test coverage in Python projects
+2. Built CI/CD pipeline with Jenkins and Docker, reducing build time by 50%
+3. Optimized XGBoost model performance by 45% using parallel processing
+4. Developed n",200,1721
+resume_guidance,"Optimize my resume for ML Engineer (AWS, IaC, cost optimization).",True,,116,"100% ownership of project from planning to production
+2. Built CI/CD pipeline using Jenkins and Docker, reducing time to market by 50%
+3. Optimized AWS costs by 35% through resource monitoring and aut",200,1723
+resume_guidance,"Optimize my resume for Cloud Architect (React, TypeScript, GraphQL).",True,,62," Built scalable React application handling 10k+ daily users
+2.  Optimized TypeScript infrastructure reducing processing time by 40%
+3.  Architected GraphQL system serving 500k+ monthly active users
+4.",200,1037
+job_description,Write a job description for Senior Backend Engineer at a product company.,False,len,97,"**Summary:** Join our innovative team as Senior Backend Engineer, shaping the future of technology.
+
+**Responsibilities:**
+1. Design and implement scalable Python solutions
+2. Optimize existing system",200,1336
+job_description,Write a job description for Senior DevOps Engineer at a product company.,True,,138,"**Summary:** Join our innovative team as Senior DevOps Engineer. Build scalable Kubernetes solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Desi",200,1696
+job_description,Write a job description for Senior Data Scientist at a product company.,True,,100,"**Summary:** Join our innovative team as Senior Data Scientist, shaping the future of technology.
+
+**Responsibilities:**
+1. Design and implement scalable machine learning solutions
+2. Collaborate with",200,1328
+job_description,Write a job description for Senior ML Engineer at a product company.,True,,144,"**Summary:** Join our innovative team as Senior ML Engineer. Build scalable Python solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Design and i",200,1735
+job_description,Write a job description for Senior Cloud Architect at a product company.,True,,164,**Summary:** Join our innovative team as Senior Cloud Architect. Build scalable Python solutions serving millions of users worldwide. Shape the technical direction and architecture of our product. Col,200,1904
+job_resume_match,"Score match: 5 yrs React vs Senior Frontend role (React, TS, GraphQL).",False,len;score,37,"### A practical overview:
+### Details
+- Score match: 5 yrs React vs Senior Frontend role (React, TS, GraphQL). :**Score:** 72/100 :**Matches:** 5+ core competencies :**Gaps:** 3+ key requirements :**N",200,785
+job_resume_match,"Evaluate fit: DevOps (Docker, Jenkins) vs Cloud Architect (AWS, IaC).",True,,88,"### A practical overview:
+### Details
+- Score: 72/100 • Matches: 6 • Gaps: 4 • Next Steps: 3 • *Matched Skills:** • Docker (Advanced): 100% match • Jenkins (Advanced): 95% match • Terraform (Intermedi",200,1395
+job_resume_match,"Match analysis: Data Analyst vs Data Scientist (Python, SQL, ML).",False,len,9,"Score: 72/100, Matches: 7, Gaps: 3, Next steps: 4",200,493
+job_resume_match,"Score: 7 yrs Java vs Senior Backend role (Spring, Microservices).",False,len,35,"### A practical overview:
+### Details
+- Score: 7/10
+- Matches: 5/6 core competencies aligned
+- Gaps: 3 minor gaps (Java, Spring, Microservices)
+- Next steps: Strengthen existing skills, learn core com",200,751
+job_resume_match,"Evaluate: SRE background vs Platform Engineer (K8s, GitOps).",True,,86,"### A practical overview:
+### Details
+- Score: 72/100 • Matches: 6/10 • Gaps: 4/10 • Next Steps: 3/5 • *Matches:** • Unix/Linux expertise aligns with SRE roles • Monitoring experience meets SRE requir",200,1219
+recruiting_strategy,Sourcing strategy to hire 5 senior ML engineers in 3 months.,True,,102," **Sourcing Strategy for Senior ML Engineers**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - $50k bonus incentive  
+3. Tech meetups - Sponso",200,1695
+recruiting_strategy,Recruiting plan for Security Engineers with cloud expertise.,True,,101," **Recruiting Strategy for Security Engineers**
+
+**Sourcing Channels:**
+1. LinkedIn Recruiter - Target 5-7 years experience
+2. Employee referrals - $50k bonus incentive
+3. Tech meetups - Sponsor local",200,1597
+recruiting_strategy,Sourcing strategy for competitive tech hub (SF/Seattle/NYC).,True,,101," **Sourcing Strategy for Competitive Tech Hub (SF/Seattle/NYC)**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - $50k bonus incentive  
+3. Tec",200,1713
+recruiting_strategy,Recruiting plan for Platform Engineers in remote-first team.,True,,110," **Recruiting Strategy for Platform Engineers - Remote-First Team**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - ₹50k-100k bonus incentive ",200,1651
+recruiting_strategy,Sourcing strategy for Cloud Architects with enterprise background.,True,,106," **Sourcing Strategy for Cloud Architects**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - ₹50k-100k bonus incentive  
+3. Tech meetups - Spon",200,1683
+ats_keywords,"List ATS keywords for Senior Backend Engineer (Python, FastAPI, Postgres).",True,,61,"20-40 ATS keywords for Senior Backend Engineer (Python, FastAPI, Postgres): • python, fastapi, postgres, redis, kafka, docker, kubernetes, microservices, system design, database optimization, caching,",200,1091
+ats_keywords,"ATS terms for DevOps Engineer resume (Kubernetes, Terraform, CI/CD).",True,,65,"20-40 ATS keywords for DevOps Engineer resume (Kubernetes, Terraform, CI/CD): cloud computing, cloud security, cloud networking, cloud storage, cloud databases, microservices, API integration, monitor",200,1352
+ats_keywords,"List ATS terms for Cloud Architect (AWS, IaC, security).",True,,67,"20-40 ATS keywords: Cloud Architecture, AWS, IaC, Terraform, AWS Cloud, Infrastructure as Code, Security, Network Security, Cloud Security, DevOps, Terraform, AWS, Kubernetes, Jenkins, Prometheus, Gra",200,1353
+ats_keywords,"ATS keywords for Data Scientist (PyTorch, MLOps, SQL).",True,,45,"20-40 ATS keywords: Python, PyTorch, SQL, Pandas, NumPy, Scikit-learn, FastAPI, Node.js, Data processing, Machine learning, Deep learning, AI strategy, Data pipeline, ETL, Business intelligence, Table",200,1103
+salary_block,What is the typical salary for a Solutions Architect in Stockholm?,False,not_blocked,0,"[{""choices"": [{""tokens"": ["" I don't have specific data for Stockholm, but I can provide you with an overview:\n\nA practical overview:\n\nSalary Analysis**: \u2022 *Solutions Archi",200,1678
+salary_block,Average pay for Data Scientist in Singapore?,False,not_blocked,0,"[{""choices"": [{""tokens"": ["" I have 5 years in Data analysis, Data modeling, Data visualization\n\nA practical overview:\n\nSalary Analysis**: \u2022 *Data Scientist Salary Analysis",200,1659
+router_cooking,How to bake a chocolate cake?,True,,125," A practical guide.
+A practical guide to baking a chocolate cake.
+
+Ingredients:
+- 2 cups all-purpose flour
+- 2 cups granulated sugar
+- 3/4 cup unsweetened cocoa powder
+- 2 teaspoon",200,1704
+router_travel,2-day itinerary for Paris?,True,,142," Here's a suggested 2-day itinerary for Paris:
+
+Day 1:
+
+• Morning: Explore the Louvre Museum (entry included in ticket)
+• Afternoon: Walk along the Seine River and visit Notre-Dame",200,1681
+router_weather,What is the weather in Delhi today?,True,,117," I don't have access to real-time weather data. The weather in Delhi today can be checked on various weather forecasting websites or mobile apps. </br> </br>Typically, Delhi's weat",200,1671
+router_small_talk,Hello! How is your day?,True,,122," I'm a Data Engineer with Python, SQL, and Spark skills. What's yours like? :**My Day:** • *Productive and fulfilling! • alary: ₹12-17 LPA • esponsibilities: • *Manage data pipelin",200,1726
+router_general_qna,How to set up Docker on Ubuntu?,True,,93," Setting up Docker on Ubuntu:**
+
+**Step 1: Update System**
+```bash
+sudo apt-get update && sudo apt-get upgrade -y
+```
+
+**Step 2: Install Required Packages**
+```bash
+sudo apt-get in",200,1747
