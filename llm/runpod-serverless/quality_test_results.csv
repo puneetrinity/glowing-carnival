@@ -1,0 +1,93 @@
+domain,prompt,ok,issues,len,preview,http_status,exec_ms
+resume_guidance,"Optimize my resume for Backend Engineer (Python, FastAPI, Postgres, AWS).",False,len;bullets;verbs;ats_line,0,,200,-1
+resume_guidance,"Optimize my resume for DevOps Engineer (Kubernetes, Terraform, EKS).",True,,68,"35% productivity gain through efficient task management
+2. Built CI/CD pipeline using Jenkins and Docker, reducing deployment time by 50%
+3. Reduced server response time by 40% through system optimiza",200,1371
+resume_guidance,"Optimize my resume for Data Scientist (PyTorch, XGBoost, SQL).",True,,91,"15% improvement in Python application performance
+2. Built CI/CD pipeline using Jenkins and Docker, reducing deployment time by 60%
+3. Reduced data processing time from 4 hours to 30 minutes
+4. Develo",200,1543
+resume_guidance,"Optimize my resume for ML Engineer (AWS, IaC, cost optimization).",True,,70,"100% ownership of project from planning to delivery
+2. Built CI/CD pipeline using Jenkins and Docker, reducing deployment time by 60%
+3. Developed Python application serving 10k+ daily users
+4. Reduce",200,1171
+resume_guidance,"Optimize my resume for Cloud Architect (React, TypeScript, GraphQL).",True,,54,"15% code refactoring reduction
+2. Implemented CI/CD pipeline saving 4 hours daily
+3. Built monitoring system reducing outages by 60%
+4. Optimized system handling 10k+ daily users
+5. Collaborated with ",200,1054
+job_description,Write a job description for Senior Backend Engineer at a product company.,True,,138,"**Summary:** Join our innovative team as Senior Backend Engineer. Build scalable Python solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Design ",200,1824
+job_description,Write a job description for Senior DevOps Engineer at a product company.,True,,103,"**Summary:** Join our innovative team as Senior DevOps Engineer, shaping the future of technology.
+
+**Responsibilities:**
+1. Design and implement scalable Kubernetes solutions
+2. Build production syst",200,1481
+job_description,Write a job description for Senior Data Scientist at a product company.,True,,140,"**Summary:** Join our innovative team as Senior Data Scientist. Build scalable Python solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Design an",200,1889
+job_description,Write a job description for Senior ML Engineer at a product company.,True,,144,"**Summary:** Join our innovative team as Senior ML Engineer. Build scalable Python solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Design and i",200,1850
+job_description,Write a job description for Senior Cloud Architect at a product company.,False,len,96,"**Summary:** Join our innovative team as Senior Cloud Architect. Build scalable cloud solutions serving millions of users worldwide. Shape the future of technology.
+
+**Responsibilities:**
+1. Design sc",200,1389
+job_resume_match,"Score match: 5 yrs React vs Senior Frontend role (React, TS, GraphQL).",False,len;score;content,15,"A practical overview:
+
+Score match: 5 yrs React vs Senior Frontend role (React, TS, GraphQL).",200,499
+job_resume_match,"Evaluate fit: DevOps (Docker, Jenkins) vs Cloud Architect (AWS, IaC).",True,,100,"### A practical overview:
+### Details
+- Score: 72/100 • Matches: 7 • Gaps: 5 • Next Steps: 4
+
+### Rationale:
+**Matches:** • Docker experience aligns with DevOps role requirements • Jenkins skills meet",200,1337
+job_resume_match,"Match analysis: Data Analyst vs Data Scientist (Python, SQL, ML).",True,,104,"### A practical overview:
+### Details
+- Score: 72/100 • Matches: 6/10 • Gaps: 4/10 • Next Steps: 3/5
+
+### Matches:
+- Python: 4/5 (Data Analyst: 3, Data Scientist: 4) • SQL: 4/5 (Data Analyst: 3, Data ",200,1646
+job_resume_match,"Score: 7 yrs Java vs Senior Backend role (Spring, Microservices).",False,len,72,"A practical overview:
+
+Score: 70/100 • *Matches:** • Java experience aligns with role requirements • Spring skills meet senior-level expectations • Additional relevant experience highly valued • *Gaps",200,1009
+job_resume_match,"Evaluate: SRE background vs Platform Engineer (K8s, GitOps).",True,,92,"### A practical overview:
+### Details
+- Score: 72/100 • Matches: 5/8 • Gaps: 3/8 • Next Steps: 3 actions → :**Match Confidence:** Moderate :**Match Details:** • *Matches:** • SRE experience aligns wit",200,1260
+recruiting_strategy,Sourcing strategy to hire 5 senior ML engineers in 3 months.,True,,104," **Sourcing Strategy for Senior ML Engineers**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - $50k bonus incentive  
+3. Tech meetups - Sponso",200,1718
+recruiting_strategy,Recruiting plan for Security Engineers with cloud expertise.,True,,85," **Recruiting Strategy for Security Engineers**
+
+**Sourcing Channels:**
+1. LinkedIn Recruiter - Target 5-7 years experience
+2. Employee referrals - $50k bonus incentive
+3. Tech meetups - Sponsor local",200,1577
+recruiting_strategy,Sourcing strategy for competitive tech hub (SF/Seattle/NYC).,True,,101," **Sourcing Strategy for Competitive Tech Hub (SF/Seattle/NYC)**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - $50k bonus incentive  
+3. Tec",200,1811
+recruiting_strategy,Recruiting plan for Platform Engineers in remote-first team.,True,,115," **Recruiting Strategy for Platform Engineers - Remote-First Team**  
+
+**Sourcing Channels:**  
+1. LinkedIn Recruiter - Target 5-7 years experience  
+2. Employee referrals - ₹50k-100k bonus incentive ",200,1808
+recruiting_strategy,Sourcing strategy for Cloud Architects with enterprise background.,True,,104," **Sourcing Strategy for Cloud Architects**
+
+**Sourcing Channels:**
+1.1. LinkedIn Recruiter - Target 5-7 years experience
+1.2. Employee referrals - ₹50k-100k bonus incentive
+1.3. Tech meetups - Sponso",200,1776
+ats_keywords,"List ATS keywords for Senior Backend Engineer (Python, FastAPI, Postgres).",True,,59,"20-40 ATS keywords for Senior Backend Engineer (Python, FastAPI, Postgres): • python, fastapi, postgres, redis, kafka, docker, kubernetes, microservices, system design, database optimization, caching,",200,1198
+ats_keywords,"ATS terms for DevOps Engineer resume (Kubernetes, Terraform, CI/CD).",True,,40,"20-40 ATS keywords for DevOps Engineer resume (Kubernetes, Terraform, CI/CD): kubernetes, docker, Jenkins, ArgoCD, Terraform, AWS, GCP, Azure, Prometheus, Grafana, CI/CD, Jenkins, ArgoCD, Terraform, A",200,1647
+ats_keywords,"List ATS terms for Cloud Architect (AWS, IaC, security).",False,count,30,"20-40 ATS keywords for Cloud Architect (AWS, IaC, security): • cloud security • AWS • Terraform • Ansible • Kubernetes • Docker • CI/CD • Prometheus • 120 characters total",200,624
+ats_keywords,"ATS keywords for Data Scientist (PyTorch, MLOps, SQL).",True,,33,"20-40 ATS keywords: Python, PyTorch, SQL, Pandas, NumPy, Scikit-learn, FastAPI, Prometheus, CI/CD, Docker, Kubernetes, Machine Learning, Deep Learning, Data Processing, Feature Engineering, Model Trai",200,845
