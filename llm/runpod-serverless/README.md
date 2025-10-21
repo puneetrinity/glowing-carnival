@@ -1,4 +1,4 @@
-# RunPod Serverless Deployment - Qwen 2.5 7B Career Model
+# RunPod Serverless Deployment - Puneetrinity/qwen2.5-7b-careerv2
 
 Production-ready serverless deployment with vLLM, streaming, and autoscaling.
 

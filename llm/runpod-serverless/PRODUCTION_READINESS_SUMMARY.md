@@ -250,7 +250,7 @@ cat > DEPLOYMENT_METADATA.json <<EOF
   "git_commit": "$(git rev-parse HEAD)",
   "deployed_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "endpoint_id": "4cqta56swdioxi",
-  "model": "Puneetrinity/qwen2-7b-career",
+  "model": "Puneetrinity/qwen2.5-7b-careerv2",
   "performance": {
     "exec_ms_p50": 2810,
     "total_ms_p50": 3453,

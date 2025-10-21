@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir \
 
 # Download model from HuggingFace during build
 # This embeds the model in the image for faster cold starts
-ARG HF_MODEL=Puneetrinity/qwen2-7b-career
-ENV MODEL_PATH=/models/qwen2-7b-career
+ARG HF_MODEL=Puneetrinity/qwen2.5-7b-careerv2
+ENV MODEL_PATH=/models/Puneetrinity/qwen2.5-7b-careerv2
 
 RUN python -c "from huggingface_hub import snapshot_download; \
     snapshot_download(repo_id='${HF_MODEL}', local_dir='${MODEL_PATH}', \
@@ -29,7 +29,7 @@ RUN mkdir -p /home/ews/llm && \
     ln -s /app/career_guidance_v3.py /home/ews/llm/career_guidance_v3.py
 
 # Environment variables for vLLM
-ENV MODEL_NAME=qwen2-7b-career
+ENV MODEL_NAME=qwen2.5-7b-careerv2
 ENV MAX_MODEL_LEN=4096
 ENV GPU_MEMORY_UTILIZATION=0.90
 ENV MAX_NUM_SEQS=8

@@ -2,8 +2,8 @@
 uuid = "qwen2-7b-career-serverless"
 base_image = "runpod/pytorch:2.1.1-py3.10-cuda12.1.1-devel-ubuntu22.04"
 env_vars = [
-    "MODEL_PATH=/models/qwen2-7b-career",
-    "MODEL_NAME=qwen2-7b-career",
+    "MODEL_PATH=/models/Puneetrinity/qwen2.5-7b-careerv2",
+    "MODEL_NAME=Puneetrinity/qwen2.5-7b-careerv2",
     "MAX_MODEL_LEN=4096",
     "GPU_MEMORY_UTILIZATION=0.90",
     "MAX_NUM_SEQS=8",
