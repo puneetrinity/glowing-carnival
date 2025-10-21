@@ -1,7 +1,7 @@
 # Performance Validation Report
 **Date:** 2025-10-10
 **Endpoint:** https://api.runpod.ai/v2/4cqta56swdioxi
-**Model:** Puneetrinity/qwen2-7b-career (Qwen 2.5 7B)
+**Model:** Puneetrinity/qwen2.5-7b-careerv2 (Qwen 2.5 7B v2)
 **GPU:** NVIDIA GeForce RTX 4090
 
 ---

@@ -54,7 +54,7 @@ echo -e "\n${YELLOW}Step 3: Building Docker image...${NC}"
 echo "This will take 5-10 minutes (downloading model from HuggingFace)"
 
 docker build -t ${IMAGE_NAME}:latest \
-    --build-arg HF_MODEL=Puneetrinity/qwen2-7b-career \
+    --build-arg HF_MODEL=Puneetrinity/qwen2.5-7b-careerv2 \
     .
 
 echo -e "${GREEN}✓ Docker image built: ${IMAGE_NAME}:latest${NC}"
